@@ -1,0 +1,447 @@
+// lib/presentation/pages/auth/ganti_password_page.dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../core/constants/app_colors.dart';
+
+class GantiPasswordPage extends StatefulWidget {
+  const GantiPasswordPage({super.key});
+
+  @override
+  State<GantiPasswordPage> createState() => _GantiPasswordPageState();
+}
+
+class _GantiPasswordPageState extends State<GantiPasswordPage> {
+  final _formKey = GlobalKey<FormState>();
+
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  bool _isLoading = false;
+
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _simpanPassword() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      final success = await authProvider.changePassword(
+        currentPassword: _currentPasswordController.text,
+        newPassword: _newPasswordController.text,
+        confirmPassword: _confirmPasswordController.text,
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              "Password berhasil diubah. Silakan login kembali.",
+            ),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+
+        // Navigate to login page
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              authProvider.errorMessage ?? "Gagal mengubah password",
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.06;
+
+    return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 254, 253, 253),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ===== MINIMAL HEADER =====
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: padding,
+                vertical: screenHeight * 0.02,
+              ),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: screenWidth * 0.1,
+                      height: screenWidth * 0.1,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.arrow_back_ios_new,
+                        size: screenWidth * 0.045,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    "Ganti Password",
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.048,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(width: screenWidth * 0.1),
+                ],
+              ),
+            ),
+
+            // ===== SCROLLABLE CONTENT =====
+            Expanded(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.all(padding),
+                  child: Column(
+                    children: [
+                      SizedBox(height: screenHeight * 0.02),
+
+                      // ===== ICON HEADER =====
+                      Container(
+                        width: screenWidth * 0.2,
+                        height: screenWidth * 0.2,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.lock_outline,
+                          size: screenWidth * 0.1,
+                          color: AppColors.primary,
+                        ),
+                      ),
+
+                      SizedBox(height: screenHeight * 0.02),
+
+                      Text(
+                        "Ubah Password Anda",
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.052,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+
+                      SizedBox(height: screenHeight * 0.008),
+
+                      Text(
+                        "Pastikan password baru minimal 6 karakter",
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.034,
+                          color: Colors.black45,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      SizedBox(height: screenHeight * 0.04),
+
+                      // ===== FORM CARD =====
+                      Container(
+                        padding: EdgeInsets.all(screenWidth * 0.05),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 20,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Password Sekarang
+                              Text(
+                                "Password Sekarang",
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.036,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: screenHeight * 0.01),
+                              TextFormField(
+                                controller: _currentPasswordController,
+                                obscureText: _obscureCurrent,
+                                enabled: !_isLoading,
+                                style: TextStyle(fontSize: screenWidth * 0.038),
+                                decoration: InputDecoration(
+                                  hintText: "Masukkan password sekarang",
+                                  hintStyle: TextStyle(
+                                    color: Colors.black26,
+                                    fontSize: screenWidth * 0.036,
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8F8F8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: screenWidth * 0.04,
+                                    vertical: screenHeight * 0.018,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscureCurrent
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: Colors.black38,
+                                      size: screenWidth * 0.055,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscureCurrent = !_obscureCurrent;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return "Masukkan password sekarang";
+                                  }
+                                  return null;
+                                },
+                              ),
+
+                              SizedBox(height: screenHeight * 0.025),
+
+                              // Password Baru
+                              Text(
+                                "Password Baru",
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.036,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: screenHeight * 0.01),
+                              TextFormField(
+                                controller: _newPasswordController,
+                                obscureText: _obscureNew,
+                                enabled: !_isLoading,
+                                style: TextStyle(fontSize: screenWidth * 0.038),
+                                decoration: InputDecoration(
+                                  hintText: "Masukkan password baru",
+                                  hintStyle: TextStyle(
+                                    color: Colors.black26,
+                                    fontSize: screenWidth * 0.036,
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8F8F8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: screenWidth * 0.04,
+                                    vertical: screenHeight * 0.018,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscureNew
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: Colors.black38,
+                                      size: screenWidth * 0.055,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscureNew = !_obscureNew;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return "Masukkan password baru";
+                                  }
+                                  if (value.length < 6) {
+                                    return "Password minimal 6 karakter";
+                                  }
+                                  return null;
+                                },
+                              ),
+
+                              SizedBox(height: screenHeight * 0.025),
+
+                              // Konfirmasi Password Baru
+                              Text(
+                                "Konfirmasi Password",
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.036,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: screenHeight * 0.01),
+                              TextFormField(
+                                controller: _confirmPasswordController,
+                                obscureText: _obscureConfirm,
+                                enabled: !_isLoading,
+                                style: TextStyle(fontSize: screenWidth * 0.038),
+                                decoration: InputDecoration(
+                                  hintText: "Konfirmasi password baru",
+                                  hintStyle: TextStyle(
+                                    color: Colors.black26,
+                                    fontSize: screenWidth * 0.036,
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8F8F8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: screenWidth * 0.04,
+                                    vertical: screenHeight * 0.018,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscureConfirm
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: Colors.black38,
+                                      size: screenWidth * 0.055,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscureConfirm = !_obscureConfirm;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return "Masukkan konfirmasi password";
+                                  }
+                                  if (value != _newPasswordController.text) {
+                                    return "Password tidak sama";
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: screenHeight * 0.03),
+
+                      // ===== TOMBOL SIMPAN =====
+                      GestureDetector(
+                        onTap: _isLoading ? null : _simpanPassword,
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(
+                            vertical: screenHeight * 0.02,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _isLoading
+                                ? AppColors.grey
+                                : AppColors.primary,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: _isLoading
+                                ? []
+                                : [
+                                    BoxShadow(
+                                      color: AppColors.primary.withOpacity(0.3),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                          ),
+                          child: _isLoading
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.white,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  "Simpan Password",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: screenWidth * 0.042,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
+
+                      SizedBox(height: screenHeight * 0.02),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

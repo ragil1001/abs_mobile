@@ -1,0 +1,53 @@
+name: abs
+description: "A new Flutter project."
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI Icons
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.3.1
+  lucide_icons: ^0.257.0
+  iconsax_flutter: ^1.0.1
+  iconsax: ^0.0.8
+  hugeicons: ^1.0.2
+
+  # Map dependencies (menggunakan Flutter Map + OpenStreetMap)
+  flutter_map: ^8.2.1
+  latlong2: ^0.9.1
+  flutter_map_tile_caching: ^10.1.1
+
+  # Location services
+  geolocator: ^14.0.2
+
+  # Internationalization
+  intl: ^0.19.0
+  camera: ^0.11.0+2
+  path_provider: ^2.1.5
+  path: ^1.9.0
+
+  # State Management
+  provider: ^6.1.1
+
+  # HTTP Client
+  http: ^1.1.2
+
+  # Local Storage
+  shared_preferences: ^2.2.2
+  file_picker: ^10.3.3
+  url_launcher: ^6.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
