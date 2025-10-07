@@ -24,6 +24,24 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
   File? _selectedFile;
   bool _isSubmitting = false;
 
+  // Opsi jenis izin dengan detail
+  final List<Map<String, dynamic>> _jenisIzinOptions = [
+    {
+      'value': 'Sakit',
+      'label': 'Sakit',
+      'icon': Icons.local_hospital,
+      'color': Colors.red,
+      'description': 'Izin karena kondisi kesehatan',
+    },
+    {
+      'value': 'Cuti',
+      'label': 'Cuti',
+      'icon': Icons.beach_access,
+      'color': Colors.blue,
+      'description': 'Cuti tahunan atau keperluan pribadi',
+    },
+  ];
+
   @override
   void dispose() {
     _keteranganController.dispose();
@@ -36,9 +54,8 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
       initialDate: isMulai
           ? (_tanggalMulai ?? DateTime.now())
           : (_tanggalSelesai ?? _tanggalMulai ?? DateTime.now()),
-      // Tanggal bebas - tidak ada batasan firstDate dan lastDate yang strict
-      firstDate: DateTime(2020), // Bisa disesuaikan dengan kebutuhan
-      lastDate: DateTime(2030), // Bisa disesuaikan dengan kebutuhan
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
       helpText: isMulai ? 'Pilih Tanggal Mulai' : 'Pilih Tanggal Selesai',
       builder: (context, child) {
         return Theme(
@@ -58,7 +75,6 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
       setState(() {
         if (isMulai) {
           _tanggalMulai = picked;
-          // Reset tanggal selesai jika kurang dari tanggal mulai
           if (_tanggalSelesai != null && _tanggalSelesai!.isBefore(picked)) {
             _tanggalSelesai = null;
           }
@@ -80,7 +96,6 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
         final file = File(result.files.single.path!);
         final fileSize = await file.length();
 
-        // Check file size (max 10MB)
         if (fileSize > 10 * 1024 * 1024) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -111,6 +126,132 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
     setState(() {
       _selectedFile = null;
     });
+  }
+
+  // Show custom dialog for selecting jenis izin
+  Future<void> _showJenisIzinDialog() async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.category, color: AppColors.primary, size: 28),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Pilih Jenis Izin',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                ...(_jenisIzinOptions.map((option) {
+                  final isSelected = _jenisIzin == option['value'];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop(option['value']);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? option['color'].withOpacity(0.1)
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? option['color']
+                                : Colors.grey.shade300,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: option['color'].withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                option['icon'],
+                                color: option['color'],
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    option['label'],
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? option['color']
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    option['description'],
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isSelected)
+                              Icon(
+                                Icons.check_circle,
+                                color: option['color'],
+                                size: 24,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList()),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Batal'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        _jenisIzin = selected;
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -145,14 +286,6 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
     try {
       final izinProvider = Provider.of<IzinProvider>(context, listen: false);
 
-      print('=== FORM SUBMIT ===');
-      print('Submitting izin...');
-      print('Jenis: $_jenisIzin');
-      print('Mulai: $_tanggalMulai');
-      print('Selesai: $_tanggalSelesai');
-      print('Keterangan: ${_keteranganController.text}');
-      print('File: ${_selectedFile?.path}');
-
       final success = await izinProvider.ajukanIzin(
         jenisIzin: _jenisIzin!,
         tanggalMulai: _tanggalMulai!,
@@ -163,21 +296,13 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
         fileDokumen: _selectedFile,
       );
 
-      print('Submit result: $success');
-
-      if (!mounted) {
-        print('Widget not mounted, returning');
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _isSubmitting = false;
       });
 
       if (success) {
-        print('Success! Showing snackbar and navigating back...');
-
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Pengajuan izin berhasil dikirim'),
@@ -186,16 +311,10 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
           ),
         );
 
-        // Wait a bit before popping to show the success message
         await Future.delayed(const Duration(milliseconds: 500));
-
         if (!mounted) return;
-
-        // Navigate back with success result
         Navigator.pop(context, true);
       } else {
-        print('Failed! Error: ${izinProvider.errorMessage}');
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(izinProvider.errorMessage ?? 'Gagal mengajukan izin'),
@@ -204,11 +323,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
           ),
         );
       }
-    } catch (e, stackTrace) {
-      print('=== SUBMIT ERROR CAUGHT ===');
-      print('Submit error: $e');
-      print('StackTrace: $stackTrace');
-
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
@@ -223,6 +338,14 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
         ),
       );
     }
+  }
+
+  // Get selected option details
+  Map<String, dynamic>? get _selectedOption {
+    if (_jenisIzin == null) return null;
+    return _jenisIzinOptions.firstWhere(
+      (option) => option['value'] == _jenisIzin,
+    );
   }
 
   @override
@@ -265,34 +388,100 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
             ),
             const SizedBox(height: 16),
 
-            // Jenis Izin
-            DropdownButtonFormField<String>(
-              value: _jenisIzin,
-              decoration: InputDecoration(
-                labelText: 'Jenis Izin *',
-                prefixIcon: const Icon(Icons.category),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
+            // Jenis Izin - Custom Display
+            const Text(
+              'Jenis Izin *',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
-              items: const [
-                DropdownMenuItem(value: 'Izin', child: Text('Izin')),
-                DropdownMenuItem(value: 'Sakit', child: Text('Sakit')),
-              ],
-              onChanged: _isSubmitting
-                  ? null
-                  : (val) {
-                      setState(() => _jenisIzin = val);
-                    },
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Jenis izin wajib dipilih';
-                }
-                return null;
-              },
             ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _isSubmitting ? null : _showJenisIzinDialog,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _selectedOption != null
+                        ? _selectedOption!['color'].withOpacity(0.5)
+                        : Colors.grey.shade300,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    if (_selectedOption != null)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _selectedOption!['color'].withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          _selectedOption!['icon'],
+                          color: _selectedOption!['color'],
+                          size: 24,
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.category,
+                          color: Colors.grey.shade600,
+                          size: 24,
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedOption != null
+                                ? _selectedOption!['label']
+                                : 'Pilih jenis izin',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedOption != null
+                                  ? Colors.black87
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                          if (_selectedOption != null)
+                            Text(
+                              _selectedOption!['description'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                  ],
+                ),
+              ),
+            ),
+            if (_jenisIzin == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, left: 12),
+                child: Text(
+                  'Jenis izin wajib dipilih',
+                  style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                ),
+              ),
             const SizedBox(height: 16),
 
             // Tanggal Mulai

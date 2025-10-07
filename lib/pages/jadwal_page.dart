@@ -166,6 +166,78 @@ class _JadwalPageState extends State<JadwalPage> {
     return currentIndex < _periodOptions.length - 1;
   }
 
+  // TAMBAH: Show tukar shift info dialog
+  void _showTukarShiftInfo(jadwal) {
+    if (!jadwal.isDitukar || jadwal.tukarShiftInfo == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.swap_horiz, color: AppColors.primary, size: 24),
+              const SizedBox(width: 8),
+              const Text('Shift Ditukar'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Shift ini telah ditukar dengan:',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        jadwal.tukarShiftInfo!.dengan,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -319,187 +391,288 @@ class _JadwalPageState extends State<JadwalPage> {
     final isToday =
         jadwal.tanggal == DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: isToday ? Border.all(color: AppColors.primary, width: 2) : null,
-        boxShadow: [
-          BoxShadow(
-            color: isToday
-                ? AppColors.primary.withOpacity(0.15)
-                : Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            // Left side - Date
-            Container(
-              width: 56,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: jadwal.isLibur
-                      ? [Colors.green.shade400, Colors.green.shade600]
-                      : jadwal.isWeekend
-                      ? [Colors.red.shade400, Colors.red.shade600]
-                      : [AppColors.primary, Colors.deepOrange.shade600],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    jadwal.tanggalFormat,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    jadwal.bulanFormat.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+    return GestureDetector(
+      onTap: jadwal.isDitukar ? () => _showTukarShiftInfo(jadwal) : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: isToday
+              ? Border.all(color: AppColors.primary, width: 2)
+              : jadwal.isDitukar
+              ? Border.all(color: Colors.orange.shade300, width: 1.5)
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: isToday
+                  ? AppColors.primary.withOpacity(0.15)
+                  : jadwal.isDitukar
+                  ? Colors.orange.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
-
-            const SizedBox(width: 12),
-
-            // Right side - Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              // Left side - Date with star indicator
+              Stack(
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        jadwal.hari,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade800,
-                        ),
+                  Container(
+                    width: 56,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: jadwal.isLibur
+                            ? [Colors.green.shade400, Colors.green.shade600]
+                            : jadwal.isWeekend
+                            ? [Colors.red.shade400, Colors.red.shade600]
+                            : jadwal.isDitukar
+                            ? [Colors.orange.shade400, Colors.orange.shade600]
+                            : [AppColors.primary, Colors.deepOrange.shade600],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      if (isToday) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          jadwal.tanggalFormat,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            height: 1,
                           ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'Hari Ini',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          jadwal.bulanFormat.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-
-                  const SizedBox(height: 6),
-
-                  if (jadwal.isLibur)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
+                  // ⭐ STAR INDICATOR for tukar shift
+                  if (jadwal.isDitukar)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade400,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.amber.withOpacity(0.5),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.star,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.green.shade200),
+                    ),
+                ],
+              ),
+
+              const SizedBox(width: 12),
+
+              // Right side - Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          jadwal.hari,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        if (isToday) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'Hari Ini',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    if (jadwal.isLibur)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.wb_sunny,
+                              size: 14,
+                              color: Colors.green.shade700,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Libur',
+                              style: TextStyle(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else ...[
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: jadwal.isDitukar
+                                  ? Colors.orange.withOpacity(0.15)
+                                  : AppColors.primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              'Shift ${jadwal.shiftCode}',
+                              style: TextStyle(
+                                color: jadwal.isDitukar
+                                    ? Colors.orange.shade700
+                                    : AppColors.primary.withOpacity(0.9),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          // Badge "Ditukar" jika shift ditukar
+                          if (jadwal.isDitukar) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: Colors.amber.shade300,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.swap_horiz,
+                                    size: 12,
+                                    color: Colors.amber.shade700,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Ditukar',
+                                    style: TextStyle(
+                                      color: Colors.amber.shade700,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      const SizedBox(height: 6),
+                      Row(
                         children: [
                           Icon(
-                            Icons.wb_sunny,
+                            Icons.access_time,
                             size: 14,
-                            color: Colors.green.shade700,
+                            color: Colors.grey.shade600,
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            'Libur',
+                            '${jadwal.waktuMulai ?? '-'} - ${jadwal.waktuSelesai ?? '-'}',
                             style: TextStyle(
-                              color: Colors.green.shade700,
-                              fontWeight: FontWeight.w600,
                               fontSize: 12,
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                    )
-                  else ...[
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text(
-                            'Shift ${jadwal.shiftCode}',
-                            style: TextStyle(
-                              color: AppColors.primary.withOpacity(0.9),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 5),
+                      // Info dengan siapa ditukar (jika ada)
+                      if (jadwal.isDitukar &&
+                          jadwal.tukarShiftInfo != null) ...[
+                        const SizedBox(height: 4),
                         Text(
-                          '${jadwal.waktuMulai ?? '-'} - ${jadwal.waktuSelesai ?? '-'}',
+                          'dengan ${jadwal.tukarShiftInfo!.dengan}',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade700,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 10,
+                            color: Colors.amber.shade700,
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+
+              // Tap indicator for tukar shift
+              if (jadwal.isDitukar)
+                Icon(
+                  Icons.info_outline,
+                  size: 20,
+                  color: Colors.amber.shade700,
+                ),
+            ],
+          ),
         ),
       ),
     );

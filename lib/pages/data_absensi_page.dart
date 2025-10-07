@@ -7,6 +7,7 @@ import 'data_izin_page.dart';
 import '../components/bottom_curve_clipper.dart';
 import '../providers/presensi_provider.dart';
 import '../providers/auth_provider.dart';
+import '../components/shimmer_loading.dart';
 
 class DataAbsensiPage extends StatefulWidget {
   const DataAbsensiPage({super.key});
@@ -18,7 +19,7 @@ class DataAbsensiPage extends StatefulWidget {
 class _DataAbsensiPageState extends State<DataAbsensiPage> {
   String? _selectedPeriod;
   List<PeriodOption> _periodOptions = [];
-  bool _isInitialized = false; // TAMBAH INI
+  bool _isInitialized = false;
 
   @override
   void initState() {
@@ -32,7 +33,6 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
 
   @override
   void dispose() {
-    // Clear state saat dispose
     _periodOptions.clear();
     _selectedPeriod = null;
     _isInitialized = false;
@@ -40,14 +40,13 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
   }
 
   void _initializePeriods() async {
-    if (_isInitialized) return; // Prevent multiple initialization
+    if (_isInitialized) return;
 
     final presensiProvider = Provider.of<PresensiProvider>(
       context,
       listen: false,
     );
 
-    // Load presensi data dulu untuk mendapatkan info project
     if (presensiProvider.presensiData == null) {
       await presensiProvider.loadPresensiData();
     }
@@ -62,7 +61,6 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
       return;
     }
 
-    // Ambil tanggal mulai project dari backend
     final projectStart = DateTime.parse(presensiData.projectInfo!.tanggalMulai);
     final today = DateTime.now();
 
@@ -74,7 +72,6 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     );
     final endDate = DateTime(today.year, today.month + 3, today.day);
 
-    // Generate periods dari project start hingga 3 bulan ke depan
     while (currentDate.isBefore(endDate) ||
         currentDate.isAtSameMomentAs(endDate)) {
       final periodStart = DateTime(
@@ -88,7 +85,6 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
         currentDate.day,
       ).subtract(const Duration(days: 1));
 
-      // Format singkat: MMM yyyy (Okt 2025)
       final startMonth = DateFormat('MMM yyyy', 'id_ID').format(periodStart);
       final endMonth = DateFormat('MMM yyyy', 'id_ID').format(periodEnd);
 
@@ -121,12 +117,10 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
       return;
     }
 
-    // Find current month period sebagai default
     final currentMonth = DateFormat('yyyy-MM').format(today);
     final defaultPeriod = periods.firstWhere(
       (p) => p.value == currentMonth,
-      orElse: () =>
-          periods.last, // Jika bulan ini tidak ada, pilih yang terakhir
+      orElse: () => periods.last,
     );
 
     if (mounted) {
@@ -215,126 +209,131 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // Header background
-          ClipPath(
-            clipper: BottomCurveClipper(),
-            child: Container(
-              width: double.infinity,
-              height: 300,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.orange, Colors.deepOrange],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
-          ),
-
-          // Content
-          RefreshIndicator(
-            onRefresh: () async {
-              _loadStatistik();
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  const Text(
-                    "Data Absensi",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+      body: Consumer<PresensiProvider>(
+        builder: (context, provider, child) {
+          return Stack(
+            children: [
+              ClipPath(
+                clipper: BottomCurveClipper(),
+                child: Container(
+                  width: double.infinity,
+                  height: 300,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.orange, Colors.deepOrange],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Statistik Container
-                  Consumer<PresensiProvider>(
-                    builder: (context, provider, child) {
-                      if (provider.isLoadingStatistik) {
-                        return _buildLoadingContainer();
-                      }
-
-                      if (provider.errorMessageStatistik != null) {
-                        return _buildErrorContainer(
-                          provider.errorMessageStatistik!,
-                        );
-                      }
-
-                      final statistik = provider.statistikPeriode;
-                      if (statistik == null) {
-                        return _buildEmptyContainer();
-                      }
-
-                      return _buildStatistikContainer(statistik);
-                    },
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Menu Cards
-                  _buildMenuCard(
-                    icon: Icons.calendar_today,
-                    title: "Data Absensi",
-                    subtitle: "Lihat riwayat absensi",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const HistoryAbsensiPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildMenuCard(
-                    icon: Icons.description,
-                    title: "Data Izin",
-                    subtitle: "Data Izin / Cuti yang sudah disetujui",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const DataIzinPage()),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 25),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
+              RefreshIndicator(
+                onRefresh: () async {
+                  _loadStatistik();
+                },
+                child: provider.isLoadingStatistik
+                    ? _buildShimmerLayout(screenWidth, screenHeight)
+                    : SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Data Absensi",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            if (provider.errorMessageStatistik != null)
+                              _buildErrorContainer(
+                                provider.errorMessageStatistik!,
+                              )
+                            else if (provider.statistikPeriode == null)
+                              _buildEmptyContainer()
+                            else
+                              _buildStatistikContainer(
+                                provider.statistikPeriode,
+                              ),
+                            const SizedBox(height: 20),
+                            _buildMenuCard(
+                              icon: Icons.calendar_today,
+                              title: "Data Absensi",
+                              subtitle: "Lihat riwayat absensi",
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const HistoryAbsensiPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                            _buildMenuCard(
+                              icon: Icons.description,
+                              title: "Data Izin",
+                              subtitle: "Data Izin / Cuti yang sudah disetujui",
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const DataIzinPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 25),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildLoadingContainer() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: CircularProgressIndicator(color: Colors.orange),
+  Widget _buildShimmerLayout(double screenWidth, double screenHeight) {
+    return ShimmerLoading(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Text
+            ShimmerBox(width: screenWidth * 0.4, height: 20, borderRadius: 4),
+            const SizedBox(height: 20),
+            // Rekap Container
+            ShimmerBox(
+              width: double.infinity,
+              height: screenHeight * 0.35,
+              borderRadius: 16,
+            ),
+            const SizedBox(height: 20),
+            // Menu Cards
+            ShimmerBox(
+              width: double.infinity,
+              height: (screenHeight * 0.08).clamp(60.0, 70.0),
+              borderRadius: 12,
+            ),
+            const SizedBox(height: 12),
+            ShimmerBox(
+              width: double.infinity,
+              height: (screenHeight * 0.08).clamp(60.0, 70.0),
+              borderRadius: 12,
+            ),
+            const SizedBox(height: 25),
+          ],
         ),
       ),
     );
@@ -392,17 +391,34 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
   }
 
   Widget _buildStatistikContainer(dynamic statistik) {
-    // Safety check: pastikan _periodOptions tidak kosong
     if (_periodOptions.isEmpty) {
       return _buildEmptyContainer();
     }
 
-    // Hitung jumlah hari dalam periode
+    // Get periode info
     final period = _periodOptions.firstWhere(
       (p) => p.value == _selectedPeriod,
       orElse: () => _periodOptions.first,
     );
+
+    // CRITICAL: Hitung jumlah hari dalam periode
     final daysInPeriod = period.endDate.difference(period.startDate).inDays + 1;
+
+    // LOGIKA BARU untuk progress bar:
+    // 1. Hadir, Izin, Alpa → max = daysInPeriod
+    // 2. Sakit, Cuti → max = izin (subset dari izin)
+    // 3. Lembur, Pulang Cepat, TPP → max = hadir (subset dari hadir)
+    // 4. Terlambat → max = hadir (tapi tidak mengurangi quota Lembur/PC/TPP)
+
+    final hadir = statistik.hadir;
+    final izin = statistik.izin;
+    final alpa = statistik.alpa;
+    final sakit = statistik.sakit;
+    final cuti = statistik.cuti;
+    final lembur = statistik.lembur;
+    final terlambat = statistik.terlambat;
+    final pulangCepat = statistik.pulangCepat;
+    final tidakPresensiPulang = statistik.tidakPresensiPulang;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -461,38 +477,36 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           const SizedBox(height: 12),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // Statistik utama: Hadir, Izin, Alpa
+          // STATISTIK UTAMA: Hadir, Izin, Alpa
           Row(
             children: [
               Expanded(
                 child: _buildRekapItem(
                   title: "Hadir",
-                  value: "${statistik.hadir} Hari",
-                  valueColor: statistik.hadir > 0
-                      ? Colors.green
-                      : Colors.black87,
-                  barColor: statistik.hadir > 0 ? Colors.green : Colors.grey,
-                  progress: statistik.hadir / daysInPeriod,
+                  value: "$hadir Hari",
+                  valueColor: hadir > 0 ? Colors.green : Colors.black87,
+                  barColor: hadir > 0 ? Colors.green : Colors.grey,
+                  progress: hadir / daysInPeriod,
                 ),
               ),
               _buildVerticalDivider(),
               Expanded(
                 child: _buildRekapItem(
                   title: "Izin",
-                  value: "${statistik.izin} Hari",
-                  valueColor: statistik.izin > 0 ? Colors.blue : Colors.black87,
-                  barColor: statistik.izin > 0 ? Colors.blue : Colors.grey,
-                  progress: statistik.izin / daysInPeriod,
+                  value: "$izin Hari",
+                  valueColor: izin > 0 ? Colors.blue : Colors.black87,
+                  barColor: izin > 0 ? Colors.blue : Colors.grey,
+                  progress: izin / daysInPeriod,
                 ),
               ),
               _buildVerticalDivider(),
               Expanded(
                 child: _buildRekapItem(
                   title: "Alpa",
-                  value: "${statistik.alpa} Hari",
-                  valueColor: statistik.alpa > 0 ? Colors.red : Colors.black87,
-                  barColor: statistik.alpa > 0 ? Colors.red : Colors.grey,
-                  progress: statistik.alpa / daysInPeriod,
+                  value: "$alpa Hari",
+                  valueColor: alpa > 0 ? Colors.red : Colors.black87,
+                  barColor: alpa > 0 ? Colors.red : Colors.grey,
+                  progress: alpa / daysInPeriod,
                 ),
               ),
             ],
@@ -501,30 +515,28 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           const SizedBox(height: 12),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // Sakit & Cuti
+          // SAKIT & CUTI (subset dari Izin)
           Row(
             children: [
               Expanded(
                 child: _buildRekapItem(
                   title: "Sakit",
-                  value: "${statistik.sakit} Hari",
-                  valueColor: statistik.sakit > 0
-                      ? Colors.orange
-                      : Colors.black87,
-                  barColor: statistik.sakit > 0 ? Colors.orange : Colors.grey,
-                  progress: statistik.sakit / daysInPeriod,
+                  value: "$sakit Hari",
+                  valueColor: sakit > 0 ? Colors.orange : Colors.black87,
+                  barColor: sakit > 0 ? Colors.orange : Colors.grey,
+                  // CRITICAL: max bar = izin (bukan daysInPeriod)
+                  progress: izin > 0 ? (sakit / izin) : 0.0,
                 ),
               ),
               _buildVerticalDivider(),
               Expanded(
                 child: _buildRekapItem(
                   title: "Cuti",
-                  value: "${statistik.cuti} Hari",
-                  valueColor: statistik.cuti > 0
-                      ? Colors.purple
-                      : Colors.black87,
-                  barColor: statistik.cuti > 0 ? Colors.purple : Colors.grey,
-                  progress: statistik.cuti / daysInPeriod,
+                  value: "$cuti Hari",
+                  valueColor: cuti > 0 ? Colors.purple : Colors.black87,
+                  barColor: cuti > 0 ? Colors.purple : Colors.grey,
+                  // CRITICAL: max bar = izin (bukan daysInPeriod)
+                  progress: izin > 0 ? (cuti / izin) : 0.0,
                 ),
               ),
             ],
@@ -533,32 +545,28 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           const SizedBox(height: 12),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // Lembur & Terlambat
+          // LEMBUR & TERLAMBAT (terkait Hadir)
           Row(
             children: [
               Expanded(
                 child: _buildRekapItem(
                   title: "Lembur",
-                  value: "${statistik.lembur} Kali",
-                  valueColor: statistik.lembur > 0
-                      ? Colors.teal
-                      : Colors.black87,
-                  barColor: statistik.lembur > 0 ? Colors.teal : Colors.grey,
-                  progress: statistik.lembur / daysInPeriod,
+                  value: "$lembur Kali",
+                  valueColor: lembur > 0 ? Colors.teal : Colors.black87,
+                  barColor: lembur > 0 ? Colors.teal : Colors.grey,
+                  // CRITICAL: max bar = hadir
+                  progress: hadir > 0 ? (lembur / hadir) : 0.0,
                 ),
               ),
               _buildVerticalDivider(),
               Expanded(
                 child: _buildRekapItem(
                   title: "Terlambat",
-                  value: "${statistik.terlambat} Kali",
-                  valueColor: statistik.terlambat > 0
-                      ? Colors.amber
-                      : Colors.black87,
-                  barColor: statistik.terlambat > 0
-                      ? Colors.amber
-                      : Colors.grey,
-                  progress: statistik.terlambat / daysInPeriod,
+                  value: "$terlambat Kali",
+                  valueColor: terlambat > 0 ? Colors.amber : Colors.black87,
+                  barColor: terlambat > 0 ? Colors.amber : Colors.grey,
+                  // CRITICAL: max bar = hadir
+                  progress: hadir > 0 ? (terlambat / hadir) : 0.0,
                 ),
               ),
             ],
@@ -567,34 +575,32 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           const SizedBox(height: 12),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // Pulang Cepat & Tidak Absen Pulang
+          // PULANG CEPAT & TIDAK ABSEN PULANG (subset dari Hadir)
           Row(
             children: [
               Expanded(
                 child: _buildRekapItem(
                   title: "Pulang Cepat",
-                  value: "${statistik.pulangCepat} Kali",
-                  valueColor: statistik.pulangCepat > 0
+                  value: "$pulangCepat Kali",
+                  valueColor: pulangCepat > 0
                       ? Colors.deepOrange
                       : Colors.black87,
-                  barColor: statistik.pulangCepat > 0
-                      ? Colors.deepOrange
-                      : Colors.grey,
-                  progress: statistik.pulangCepat / daysInPeriod,
+                  barColor: pulangCepat > 0 ? Colors.deepOrange : Colors.grey,
+                  // CRITICAL: max bar = hadir
+                  progress: hadir > 0 ? (pulangCepat / hadir) : 0.0,
                 ),
               ),
               _buildVerticalDivider(),
               Expanded(
                 child: _buildRekapItem(
                   title: "Tidak Absen Pulang",
-                  value: "${statistik.tidakPresensiPulang} Kali",
-                  valueColor: statistik.tidakPresensiPulang > 0
+                  value: "$tidakPresensiPulang Kali",
+                  valueColor: tidakPresensiPulang > 0
                       ? Colors.pink
                       : Colors.black87,
-                  barColor: statistik.tidakPresensiPulang > 0
-                      ? Colors.pink
-                      : Colors.grey,
-                  progress: statistik.tidakPresensiPulang / daysInPeriod,
+                  barColor: tidakPresensiPulang > 0 ? Colors.pink : Colors.grey,
+                  // CRITICAL: max bar = hadir
+                  progress: hadir > 0 ? (tidakPresensiPulang / hadir) : 0.0,
                 ),
               ),
             ],
@@ -693,7 +699,6 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
   }
 }
 
-// Helper class untuk period options
 class PeriodOption {
   final String value;
   final String label;

@@ -26,4 +26,14 @@ class AppColors {
   // Background
   static const Color background = Color(0xFFFAFBFD);
   static const Color cardBackground = Colors.white;
+  static const Color surface = Color(0xFFFFFFFF);
+
+  // Text Colors
+  static const Color textPrimary = Color(0xFF212121);
+  static const Color textSecondary = Color(0xFF757575);
+  static const Color textHint = Color(0xFFBDBDBD);
+
+  // Additional Colors
+  static const Color divider = Color(0xFFBDBDBD);
+  static const Color shadow = Color(0x1F000000);
 }

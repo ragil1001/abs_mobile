@@ -44,6 +44,11 @@ dependencies:
   file_picker: ^10.3.3
   url_launcher: ^6.2.2
 
+  device_info_plus: ^9.1.1
+  permission_handler: ^11.2.0
+  safe_device: ^1.1.5 # Detect mock location, developer mode
+  installed_apps: ^1.4.0 # Detect installed fake GPS apps
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -51,3 +56,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Assets
+  assets:
+    - assets/logo.png

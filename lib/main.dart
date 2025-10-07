@@ -4,7 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/izin_provider.dart';
-import 'providers/presensi_provider.dart'; // UBAH DARI home_provider
+import 'providers/presensi_provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_routes.dart';
 
@@ -16,8 +16,10 @@ import './pages/absensi_page.dart';
 import './pages/data_absensi_page.dart';
 import './components/customNavbar.dart';
 
-import 'providers/jadwal_provider.dart'; // TAMBAH INI
-import 'pages/jadwal_page.dart'; // TAMBAH INI
+import 'providers/jadwal_provider.dart';
+import 'pages/jadwal_page.dart';
+import 'pages/tukar_shift/tukar_shift_page.dart';
+import 'providers/tukar_shift_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,17 +38,30 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => IzinProvider()),
         ChangeNotifierProvider(create: (_) => PresensiProvider()),
-        ChangeNotifierProvider(create: (_) => JadwalProvider()), // TAMBAH INI
+        ChangeNotifierProvider(create: (_) => JadwalProvider()),
+        ChangeNotifierProvider(create: (_) => TukarShiftProvider()),
       ],
       child: MaterialApp(
-        // ... existing code ...
+        title: 'PT Qiprah Multi Service',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          primaryColor: AppColors.primary,
+          scaffoldBackgroundColor: AppColors.white,
+          fontFamily: 'Roboto',
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            },
+          ),
+        ),
         routes: {
           AppRoutes.login: (context) => const LoginPage(),
           AppRoutes.home: (context) => const MainApp(),
           AppRoutes.profile: (context) => const ProfilePage(),
           AppRoutes.changePassword: (context) => const GantiPasswordPage(),
           AppRoutes.absensi: (context) => const AbsensiPage(),
-          AppRoutes.jadwal: (context) => const JadwalPage(), // TAMBAH INI
+          AppRoutes.jadwal: (context) => const JadwalPage(),
         },
         home: const SplashScreen(),
       ),
@@ -54,7 +69,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Splash Screen untuk cek auth state
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -62,22 +76,62 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _rotateAnimation;
+
   @override
   void initState() {
     super.initState();
-    _checkAuthState();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+      ),
+    );
+
+    _rotateAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.2, 0.8, curve: Curves.easeInOut),
+      ),
+    );
+
+    _animationController.forward();
+    _navigateAfterDelay();
   }
 
-  Future<void> _checkAuthState() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  Future<void> _navigateAfterDelay() async {
+    await Future.delayed(const Duration(milliseconds: 2500));
 
-    // Initialize auth state
+    if (!mounted) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.initAuth();
 
     if (!mounted) return;
 
-    // Navigate based on auth state
+    // Fade out animation
+    await _animationController.reverse();
+
+    if (!mounted) return;
+
     if (authProvider.isAuthenticated) {
       Navigator.pushReplacementNamed(context, AppRoutes.home);
     } else {
@@ -86,55 +140,159 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
-      backgroundColor: AppColors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Logo
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, AppColors.primary.withOpacity(0.05)],
+          ),
+        ),
+        child: Center(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: _rotateAnimation,
+                    builder: (context, child) {
+                      return Transform.rotate(
+                        angle: _rotateAnimation.value * 0.5,
+                        child: Container(
+                          width: 140,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.primary,
+                              width: 3,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          padding: EdgeInsets.only(top: screenWidth * 0.03),
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/logo.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.business_rounded,
+                                  size: 70,
+                                  color: AppColors.primary,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 40),
+                  SlideTransition(
+                    position:
+                        Tween<Offset>(
+                          begin: const Offset(0, 0.3),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: _animationController,
+                            curve: const Interval(
+                              0.3,
+                              0.8,
+                              curve: Curves.easeOut,
+                            ),
+                          ),
+                        ),
+                    child: const Text(
+                      'PT Qiprah Multi Service',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FadeTransition(
+                    opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                      CurvedAnimation(
+                        parent: _animationController,
+                        curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+                      ),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppColors.primary.withOpacity(0.3),
+                        ),
+                      ),
+                      child: const Text(
+                        'Sistem Presensi Karyawan',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                          letterSpacing: 0.3,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 50),
+                  FadeTransition(
+                    opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                      CurvedAnimation(
+                        parent: _animationController,
+                        curve: const Interval(0.6, 1.0, curve: Curves.easeIn),
+                      ),
+                    ),
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.primary.withOpacity(0.8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: const Icon(
-                Icons.business_rounded,
-                size: 50,
-                color: AppColors.primary,
-              ),
             ),
-            const SizedBox(height: 24),
-            // Company Name
-            const Text(
-              'PT Qiprah Multi Service',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.black,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Sistem Presensi Karyawan',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
-            ),
-            const SizedBox(height: 32),
-            // Loading indicator
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-// MainApp dengan Bottom Navigation Bar
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
 
@@ -144,19 +302,58 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   int _currentIndex = 0;
+  final PageController _pageController = PageController();
 
-  final List<Widget> _pages = const [HomePage(), DataAbsensiPage()];
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   void _onTabTapped(int index) {
+    if (index == _currentIndex) return;
+
     setState(() {
       _currentIndex = index;
     });
+
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+
+    // Auto-load data saat pindah tab
+    if (index == 0) {
+      // Refresh HomePage data
+      Future.microtask(() {
+        if (mounted) {
+          context.read<PresensiProvider>().loadPresensiData();
+        }
+      });
+    } else if (index == 1) {
+      // Refresh DataAbsensiPage data
+      Future.microtask(() {
+        if (mounted) {
+          context.read<PresensiProvider>().loadPresensiData();
+        }
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        physics: const NeverScrollableScrollPhysics(),
+        children: const [HomePage(), DataAbsensiPage()],
+      ),
       bottomNavigationBar: CustomBottomNavBar(
         circleRadius: 50,
         currentIndex: _currentIndex,

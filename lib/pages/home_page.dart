@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../providers/presensi_provider.dart';
+import '../components/shimmer_loading.dart';
 import 'profile_page.dart';
 import 'pengajuan_izin_page.dart';
 import 'jadwal_page.dart';
+import 'tukar_shift/tukar_shift_page.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -99,297 +101,345 @@ class _HomePageState extends State<HomePage> {
               onRefresh: () => presensiProvider.refreshPresensiData(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
+                child: presensiProvider.isLoading
+                    ? _buildShimmerLayout(
+                        screenWidth,
+                        screenHeight,
                         padding,
-                        screenHeight * 0.02,
-                        padding,
-                        0,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        avatarSize,
+                        notifSize,
+                        companyIconSize,
+                        titleFontSize,
+                        subtitleFontSize,
+                        isVerySmallScreen,
+                        isSmallScreen,
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ProfilePage(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: avatarSize,
-                              height: avatarSize,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: const Color.fromARGB(255, 221, 225, 231),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              padding,
+                              screenHeight * 0.02,
+                              padding,
+                              0,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const ProfilePage(),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    width: avatarSize,
+                                    height: avatarSize,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: const Color.fromARGB(
+                                        255,
+                                        221,
+                                        225,
+                                        231,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.08),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      Icons.person,
+                                      size: avatarSize * 0.6,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.person,
-                                size: avatarSize * 0.6,
-                                color: Colors.white,
-                              ),
+                                ),
+                                Stack(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _notificationCount = 0;
+                                        });
+                                      },
+                                      child: Container(
+                                        width: notifSize,
+                                        height: notifSize,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(
+                                                0.08,
+                                              ),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          Icons.notifications_none,
+                                          size: notifSize * 0.55,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                    if (_notificationCount > 0)
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(3),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          constraints: BoxConstraints(
+                                            minWidth: isVerySmallScreen
+                                                ? 16
+                                                : 18,
+                                            minHeight: isVerySmallScreen
+                                                ? 16
+                                                : 18,
+                                          ),
+                                          child: Text(
+                                            '$_notificationCount',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: isVerySmallScreen
+                                                  ? 9
+                                                  : 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          Stack(
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _notificationCount = 0;
-                                  });
-                                },
-                                child: Container(
-                                  width: notifSize,
-                                  height: notifSize,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.08),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    Icons.notifications_none,
-                                    size: notifSize * 0.55,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                              if (_notificationCount > 0)
-                                Positioned(
-                                  right: 0,
-                                  top: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(3),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    constraints: BoxConstraints(
-                                      minWidth: isVerySmallScreen ? 16 : 18,
-                                      minHeight: isVerySmallScreen ? 16 : 18,
-                                    ),
-                                    child: Text(
-                                      '$_notificationCount',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: isVerySmallScreen ? 9 : 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: screenHeight * 0.02),
+                          SizedBox(height: screenHeight * 0.02),
 
-                    Container(
-                      color: const Color.fromARGB(255, 250, 251, 253),
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          padding,
-                          screenHeight * 0.02,
-                          padding,
-                          0,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
+                          Container(
+                            color: const Color.fromARGB(255, 250, 251, 253),
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                padding,
+                                screenHeight * 0.02,
+                                padding,
+                                0,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            'Halo, ',
-                                            style: TextStyle(
-                                              fontSize: titleFontSize,
-                                              fontWeight: FontWeight.w300,
-                                              color: Colors.black87,
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  'Halo, ',
+                                                  style: TextStyle(
+                                                    fontSize: titleFontSize,
+                                                    fontWeight: FontWeight.w300,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                                Flexible(
+                                                  child: Text(
+                                                    userName,
+                                                    style: TextStyle(
+                                                      fontSize: titleFontSize,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: Colors.black87,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                SizedBox(
+                                                  width: screenWidth * 0.01,
+                                                ),
+                                                Text(
+                                                  '👋',
+                                                  style: TextStyle(
+                                                    fontSize: titleFontSize,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                          Flexible(
-                                            child: Text(
-                                              userName,
+                                            SizedBox(
+                                              height: screenHeight * 0.003,
+                                            ),
+                                            Text(
+                                              _currentDate,
                                               style: TextStyle(
-                                                fontSize: titleFontSize,
+                                                fontSize: subtitleFontSize,
                                                 fontWeight: FontWeight.w600,
-                                                color: Colors.black87,
+                                                color: Colors.black54,
                                               ),
-                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          ),
-                                          SizedBox(width: screenWidth * 0.01),
-                                          Text(
-                                            '👋',
-                                            style: TextStyle(
-                                              fontSize: titleFontSize,
-                                            ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                      SizedBox(height: screenHeight * 0.003),
-                                      Text(
-                                        _currentDate,
-                                        style: TextStyle(
-                                          fontSize: subtitleFontSize,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black54,
+                                      Container(
+                                        width: companyIconSize,
+                                        height: companyIconSize,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white,
+                                          border: Border.all(
+                                            color: Colors.orange,
+                                            width: 2,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.orange.withOpacity(
+                                                0.25,
+                                              ),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          Icons.business,
+                                          size: companyIconSize * 0.56,
+                                          color: Colors.orange,
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                Container(
-                                  width: companyIconSize,
-                                  height: companyIconSize,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white,
-                                    border: Border.all(
-                                      color: Colors.orange,
-                                      width: 2,
+                                  SizedBox(height: screenHeight * 0.022),
+
+                                  if (presensiProvider.errorMessage != null)
+                                    _buildErrorCard(
+                                      screenWidth,
+                                      screenHeight,
+                                      presensiProvider.errorMessage!,
+                                    )
+                                  else
+                                    _buildDataCard(
+                                      screenWidth,
+                                      screenHeight,
+                                      bodyFontSize,
+                                      smallFontSize,
+                                      presensiData,
                                     ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.orange.withOpacity(0.25),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    Icons.business,
-                                    size: companyIconSize * 0.56,
-                                    color: Colors.orange,
+                                  SizedBox(height: screenHeight * 0.028),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          Padding(
+                            padding: EdgeInsets.all(padding),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Menu Lainnya',
+                                  style: TextStyle(
+                                    fontSize: (screenWidth * 0.042).clamp(
+                                      14.0,
+                                      18.0,
+                                    ),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
                                   ),
                                 ),
+                                SizedBox(height: screenHeight * 0.017),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.start, // rata kiri
+                                  children: [
+                                    _buildMenuCard(
+                                      icon: Icons.assignment_outlined,
+                                      label: 'Izin',
+                                      color: Colors.orange,
+                                      screenWidth: screenWidth,
+                                      screenHeight: screenHeight,
+                                      isSmall:
+                                          isVerySmallScreen || isSmallScreen,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const PengajuanIzinPage(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    SizedBox(
+                                      width: screenWidth * 0.04,
+                                    ), // jarak antar card
+                                    _buildMenuCard(
+                                      icon: Icons.swap_horiz,
+                                      label: 'Tukar Shift',
+                                      color: Colors.blue,
+                                      screenWidth: screenWidth,
+                                      screenHeight: screenHeight,
+                                      isSmall:
+                                          isVerySmallScreen || isSmallScreen,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const TukarShiftPage(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    SizedBox(
+                                      width: screenWidth * 0.04,
+                                    ), // jarak antar card
+                                    _buildMenuCard(
+                                      icon: Icons.calendar_today,
+                                      label: 'Jadwal',
+                                      color: Colors.purple,
+                                      screenWidth: screenWidth,
+                                      screenHeight: screenHeight,
+                                      isSmall:
+                                          isVerySmallScreen || isSmallScreen,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const JadwalPage(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: screenHeight * 0.02),
                               ],
                             ),
-                            SizedBox(height: screenHeight * 0.022),
-
-                            if (presensiProvider.isLoading)
-                              _buildLoadingCard(screenWidth, screenHeight)
-                            else if (presensiProvider.errorMessage != null)
-                              _buildErrorCard(
-                                screenWidth,
-                                screenHeight,
-                                presensiProvider.errorMessage!,
-                              )
-                            else
-                              _buildDataCard(
-                                screenWidth,
-                                screenHeight,
-                                bodyFontSize,
-                                smallFontSize,
-                                presensiData,
-                              ),
-                            SizedBox(height: screenHeight * 0.028),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    Padding(
-                      padding: EdgeInsets.all(padding),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Menu Lainnya',
-                            style: TextStyle(
-                              fontSize: (screenWidth * 0.042).clamp(14.0, 18.0),
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
                           ),
-                          SizedBox(height: screenHeight * 0.017),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildMenuCard(
-                                  icon: Icons.assignment_outlined,
-                                  label: 'Izin',
-                                  color: Colors.orange,
-                                  screenWidth: screenWidth,
-                                  screenHeight: screenHeight,
-                                  isSmall: isVerySmallScreen || isSmallScreen,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const PengajuanIzinPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              SizedBox(width: screenWidth * 0.02),
-                              Expanded(
-                                child: _buildMenuCard(
-                                  icon: Icons.swap_horiz,
-                                  label: 'Tukar Shift',
-                                  color: Colors.blue,
-                                  screenWidth: screenWidth,
-                                  screenHeight: screenHeight,
-                                  isSmall: isVerySmallScreen || isSmallScreen,
-                                  onTap: () {},
-                                ),
-                              ),
-                              SizedBox(width: screenWidth * 0.02),
-                              Expanded(
-                                child: _buildMenuCard(
-                                  icon: Icons.calendar_today,
-                                  label: 'Jadwal',
-                                  color: Colors.purple,
-                                  screenWidth: screenWidth,
-                                  screenHeight: screenHeight,
-                                  isSmall: isVerySmallScreen || isSmallScreen,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const JadwalPage(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: screenHeight * 0.02),
+                          SizedBox(height: 30),
                         ],
                       ),
-                    ),
-                    SizedBox(height: 30),
-                  ],
-                ),
               ),
             );
           },
@@ -398,73 +448,151 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildLoadingCard(double screenWidth, double screenHeight) {
-    final isVerySmallScreen = screenWidth < 340;
-    final headerHeight = isVerySmallScreen ? 32.0 : 36.0;
-    final topOffset = isVerySmallScreen
-        ? screenHeight * 0.04
-        : screenHeight * 0.045;
+  Widget _buildShimmerLayout(
+    double screenWidth,
+    double screenHeight,
+    double padding,
+    double avatarSize,
+    double notifSize,
+    double companyIconSize,
+    double titleFontSize,
+    double subtitleFontSize,
+    bool isVerySmallScreen,
+    bool isSmallScreen,
+  ) {
+    final cardHeight = (isVerySmallScreen || isSmallScreen)
+        ? screenHeight * 0.10
+        : screenHeight * 0.11;
+    final cardWidth = (isVerySmallScreen || isSmallScreen)
+        ? screenWidth * 0.22
+        : screenWidth * 0.24;
 
-    // Estimasi tinggi minimal untuk loading state
-    final estimatedHeight = headerHeight + topOffset + 200;
-
-    return SizedBox(
-      height: estimatedHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
+    return ShimmerLoading(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: double.infinity,
-            height: estimatedHeight,
-            decoration: BoxDecoration(
-              color: Colors.orange,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.orange.withOpacity(0.25),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+          // Header Section (Avatar and Notification)
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              padding,
+              screenHeight * 0.02,
+              padding,
+              0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ShimmerBox(
+                  width: avatarSize,
+                  height: avatarSize,
+                  borderRadius: avatarSize / 2,
+                ),
+                ShimmerBox(
+                  width: notifSize,
+                  height: notifSize,
+                  borderRadius: notifSize / 2,
                 ),
               ],
             ),
-            padding: EdgeInsets.all(screenWidth * 0.026),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Text(
-                'PT Qiprah Multi Service',
-                style: TextStyle(
-                  fontSize: (screenWidth * 0.039).clamp(13.0, 17.0),
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
           ),
-          Positioned(
-            top: topOffset,
-            left: 4,
-            right: 4,
-            child: Container(
-              padding: EdgeInsets.all(screenWidth * 0.042),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+          SizedBox(height: screenHeight * 0.02),
+
+          // Greeting and Date Section
+          Container(
+            color: const Color.fromARGB(255, 250, 251, 253),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                padding,
+                screenHeight * 0.02,
+                padding,
+                0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShimmerBox(
+                              width: screenWidth * 0.4,
+                              height: titleFontSize,
+                              borderRadius: 4,
+                            ),
+                            SizedBox(height: screenHeight * 0.003),
+                            ShimmerBox(
+                              width: screenWidth * 0.3,
+                              height: subtitleFontSize,
+                              borderRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                      ShimmerBox(
+                        width: companyIconSize,
+                        height: companyIconSize,
+                        borderRadius: companyIconSize / 2,
+                      ),
+                    ],
                   ),
+                  SizedBox(height: screenHeight * 0.022),
+
+                  // Data Card Section
+                  ShimmerBox(
+                    width: double.infinity,
+                    height: _whiteCardHeight > 0
+                        ? _whiteCardHeight + 36.0 + screenHeight * 0.01
+                        : screenHeight * 0.35,
+                    borderRadius: 16,
+                  ),
+                  SizedBox(height: screenHeight * 0.028),
                 ],
               ),
-              child: const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(color: Colors.orange),
-                ),
-              ),
             ),
           ),
+
+          // Menu Section
+          Padding(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShimmerBox(
+                  width: screenWidth * 0.3,
+                  height: (screenWidth * 0.042).clamp(14.0, 18.0),
+                  borderRadius: 4,
+                ),
+                SizedBox(height: screenHeight * 0.017),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    ShimmerBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                      borderRadius: 15,
+                    ),
+                    SizedBox(width: screenWidth * 0.04),
+                    ShimmerBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                      borderRadius: 15,
+                    ),
+                    SizedBox(width: screenWidth * 0.04),
+                    ShimmerBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                      borderRadius: 15,
+                    ),
+                  ],
+                ),
+                SizedBox(height: screenHeight * 0.02),
+              ],
+            ),
+          ),
+          SizedBox(height: 30),
         ],
       ),
     );
@@ -946,76 +1074,69 @@ class _HomePageState extends State<HomePage> {
     required bool isSmall,
     VoidCallback? onTap,
   }) {
-    final cardHeight = isSmall ? screenHeight * 0.095 : screenHeight * 0.1;
-    final iconSize = (screenWidth * 0.057).clamp(18.0, 24.0);
-    final labelSize = (screenWidth * 0.031).clamp(10.0, 14.0);
+    final cardHeight = isSmall ? screenHeight * 0.10 : screenHeight * 0.11;
+    final cardWidth = isSmall ? screenWidth * 0.22 : screenWidth * 0.24;
+    final labelSize = (screenWidth * 0.032).clamp(11.0, 14.0);
+
+    // tinggi area ikon (misal 40% tinggi card)
+    final iconBarHeight = cardHeight * 0.65;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: cardHeight,
+        width: cardWidth,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.grey.shade200, width: 1),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.12),
-              blurRadius: 6,
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Positioned(
-              right: -12,
-              top: -12,
-              child: Container(
-                width: screenWidth * 0.13,
-                height: screenWidth * 0.13,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withOpacity(0.1),
+            // 🔹 Bagian atas: blok warna dengan ikon di tengah
+            Container(
+              height: iconBarHeight,
+              width: double.infinity, // sepanjang card
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(15),
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: (screenWidth * 0.09).clamp(22.0, 28.0),
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.all(isSmall ? 8 : 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(isSmall ? 6 : 7),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(9),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withOpacity(0.18),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(icon, size: iconSize, color: color),
+
+            // 🔹 Spacer kecil
+            const SizedBox(height: 6),
+
+            // 🔹 Label di bawah
+            Expanded(
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: labelSize,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
                   ),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: labelSize,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ],
