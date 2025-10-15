@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/tukar_shift_provider.dart';
+import '../../components/custom_snackbar.dart';
 import 'tukar_shift_request_page.dart';
 import 'tukar_shift_detail_page.dart';
 
@@ -28,8 +29,8 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
 
   void _loadData() {
     final provider = Provider.of<TukarShiftProvider>(context, listen: false);
+    // Hanya kirim filter jenis dan tanggal ke API, status difilter di client
     provider.loadTukarShiftRequests(
-      status: _filterTab,
       jenis: _filterJenis,
       startDate: _customRange?.start.toString().split(' ')[0],
       endDate: _customRange?.end.toString().split(' ')[0],
@@ -45,27 +46,38 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   const Text(
                     'Filter',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   const Text(
                     'Jenis Permintaan',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     children: [
@@ -82,12 +94,12 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   const Text(
                     'Rentang Tanggal',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
@@ -114,27 +126,32 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                               setState(() => _customRange = range);
                             }
                           },
-                          icon: const Icon(Icons.date_range),
+                          icon: const Icon(Icons.date_range, size: 18),
                           label: Text(
                             _customRange == null
                                 ? 'Pilih Tanggal'
                                 : '${DateFormat('dd/MM').format(_customRange!.start)} - ${DateFormat('dd/MM').format(_customRange!.end)}',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ),
                       if (_customRange != null) ...[
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.close),
+                          icon: const Icon(Icons.close, size: 20),
                           onPressed: () {
                             setModalState(() => _customRange = null);
                             setState(() => _customRange = null);
                           },
+                          color: AppColors.error,
                         ),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -145,8 +162,18 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('Terapkan'),
+                      child: const Text(
+                        'Terapkan',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -165,14 +192,17 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
   ) {
     final selected = _filterJenis == value;
     return ChoiceChip(
-      label: Text(label),
+      label: Text(label, style: TextStyle(fontSize: 13)),
       selected: selected,
       onSelected: (bool selected) {
         setModalState(() => _filterJenis = value);
         setState(() => _filterJenis = value);
       },
       selectedColor: AppColors.primary,
-      labelStyle: TextStyle(color: selected ? Colors.white : Colors.black87),
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : Colors.black87,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+      ),
     );
   }
 
@@ -188,6 +218,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
         position.dx + 1,
         position.dy + 1,
       ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       items: [
         const PopupMenuItem(
           value: "detail",
@@ -252,18 +283,17 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
             final success = await provider.cancelTukarShift(request.id);
 
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    success
-                        ? 'Permintaan berhasil dibatalkan'
-                        : provider.errorMessage ?? 'Gagal membatalkan',
-                  ),
-                  backgroundColor: success
-                      ? AppColors.success
-                      : AppColors.error,
-                ),
-              );
+              if (success) {
+                CustomSnackbar.showSuccess(
+                  context,
+                  'Permintaan berhasil dibatalkan',
+                );
+              } else {
+                CustomSnackbar.showError(
+                  context,
+                  provider.errorMessage ?? 'Gagal membatalkan',
+                );
+              }
             }
           },
         );
@@ -285,18 +315,17 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
             );
 
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    success
-                        ? 'Permintaan berhasil disetujui'
-                        : provider.errorMessage ?? 'Gagal menyetujui',
-                  ),
-                  backgroundColor: success
-                      ? AppColors.success
-                      : AppColors.error,
-                ),
-              );
+              if (success) {
+                CustomSnackbar.showSuccess(
+                  context,
+                  'Permintaan berhasil disetujui',
+                );
+              } else {
+                CustomSnackbar.showError(
+                  context,
+                  provider.errorMessage ?? 'Gagal menyetujui',
+                );
+              }
             }
           },
         );
@@ -314,6 +343,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text("Tolak Permintaan"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -326,8 +358,10 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                 decoration: InputDecoration(
                   hintText: 'Alasan penolakan...',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
                 ),
               ),
             ],
@@ -340,11 +374,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
             ElevatedButton(
               onPressed: () async {
                 if (alasanController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Alasan penolakan wajib diisi'),
-                      backgroundColor: AppColors.error,
-                    ),
+                  CustomSnackbar.showWarning(
+                    context,
+                    'Alasan penolakan wajib diisi',
                   );
                   return;
                 }
@@ -362,23 +394,25 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                 );
 
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        success
-                            ? 'Permintaan berhasil ditolak'
-                            : provider.errorMessage ?? 'Gagal menolak',
-                      ),
-                      backgroundColor: success
-                          ? AppColors.success
-                          : AppColors.error,
-                    ),
-                  );
+                  if (success) {
+                    CustomSnackbar.showSuccess(
+                      context,
+                      'Permintaan berhasil ditolak',
+                    );
+                  } else {
+                    CustomSnackbar.showError(
+                      context,
+                      provider.errorMessage ?? 'Gagal menolak',
+                    );
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.error,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               child: const Text("Ya, Tolak"),
             ),
@@ -399,6 +433,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(title),
           content: Text(message),
           actions: [
@@ -416,6 +453,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     ? AppColors.error
                     : AppColors.primary,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               child: Text(confirmText),
             ),
@@ -427,205 +467,209 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.06;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text('Tukar Shift'),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_alt),
-            onPressed: _showFilterDialog,
-          ),
-        ],
-      ),
-      body: Consumer<TukarShiftProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
-            );
-          }
-
-          if (provider.errorMessage != null) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: AppColors.error.withOpacity(0.5),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      provider.errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: _loadData,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Coba Lagi'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final requests = provider.requests;
-
-          return Column(
-            children: [
-              // Status tabs
-              Container(
-                color: Colors.white,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      _buildTab(
-                        "Semua",
-                        "all",
-                        _getCountByStatus(requests, "all"),
-                      ),
-                      _buildTab(
-                        "Pending",
-                        "pending",
-                        _getCountByStatus(requests, "pending"),
-                      ),
-                      _buildTab(
-                        "Disetujui",
-                        "disetujui",
-                        _getCountByStatus(requests, "disetujui"),
-                      ),
-                      _buildTab(
-                        "Ditolak",
-                        "ditolak",
-                        _getCountByStatus(requests, "ditolak"),
-                      ),
-                      _buildTab(
-                        "Dibatalkan",
-                        "dibatalkan",
-                        _getCountByStatus(requests, "dibatalkan"),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-
-              // Filter info
-              if (_filterJenis != "all" || _customRange != null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  color: AppColors.primary.withOpacity(0.1),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.filter_alt,
-                        size: 20,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          [
-                            if (_filterJenis == "saya") "Permintaan Saya",
-                            if (_filterJenis == "orang_lain")
-                              "Permintaan Orang Lain",
-                            if (_customRange != null)
-                              '${DateFormat('dd MMM').format(_customRange!.start)} - ${DateFormat('dd MMM').format(_customRange!.end)}',
-                          ].join(' • '),
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+      backgroundColor: const Color.fromARGB(255, 254, 253, 253),
+      body: SafeArea(
+        child: Consumer<TukarShiftProvider>(
+          builder: (context, provider, child) {
+            if (provider.isLoading) {
+              return Column(
+                children: [
+                  _buildHeader(context, screenWidth, screenHeight, padding),
+                  const Expanded(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.primary,
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.close,
-                          size: 20,
-                          color: AppColors.primary,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _filterJenis = "all";
-                            _customRange = null;
-                          });
-                          _loadData();
-                        },
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
+              );
+            }
 
-              // List
-              Expanded(
-                child: requests.isEmpty
-                    ? Center(
+            if (provider.errorMessage != null) {
+              return Column(
+                children: [
+                  _buildHeader(context, screenWidth, screenHeight, padding),
+                  Expanded(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.swap_horiz,
+                              Icons.error_outline,
                               size: 64,
-                              color: Colors.grey.shade300,
+                              color: AppColors.error.withOpacity(0.5),
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Belum ada permintaan tukar shift',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 16,
+                              provider.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadData,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
+                              child: const Text('Coba Lagi'),
                             ),
                           ],
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => provider.refreshRequests(
-                          status: _filterTab,
-                          jenis: _filterJenis,
-                          startDate: _customRange?.start.toString().split(
-                            ' ',
-                          )[0],
-                          endDate: _customRange?.end.toString().split(' ')[0],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final requests = provider.requests;
+            final filteredRequests = _getFilteredList(requests);
+
+            return Column(
+              children: [
+                _buildHeader(context, screenWidth, screenHeight, padding),
+                Container(
+                  color: Colors.white,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        _buildTab("Semua", "all", requests.length),
+                        _buildTab(
+                          "Pending",
+                          "pending",
+                          _getCountByStatus(requests, "pending"),
                         ),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: requests.length,
-                          itemBuilder: (context, index) {
-                            return _buildRequestCard(requests[index]);
+                        _buildTab(
+                          "Disetujui",
+                          "disetujui",
+                          _getCountByStatus(requests, "disetujui"),
+                        ),
+                        _buildTab(
+                          "Ditolak",
+                          "ditolak",
+                          _getCountByStatus(requests, "ditolak"),
+                        ),
+                        _buildTab(
+                          "Dibatalkan",
+                          "dibatalkan",
+                          _getCountByStatus(requests, "dibatalkan"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                if (_filterJenis != "all" || _customRange != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    color: AppColors.primary.withOpacity(0.1),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.filter_alt,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            [
+                              if (_filterJenis == "saya") "Permintaan Saya",
+                              if (_filterJenis == "orang_lain")
+                                "Permintaan Orang Lain",
+                              if (_customRange != null)
+                                '${DateFormat('dd MMM').format(_customRange!.start)} - ${DateFormat('dd MMM').format(_customRange!.end)}',
+                            ].join(' • '),
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            size: 20,
+                            color: AppColors.primary,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _filterJenis = "all";
+                              _customRange = null;
+                            });
+                            _loadData();
                           },
                         ),
-                      ),
-              ),
-            ],
-          );
-        },
+                      ],
+                    ),
+                  ),
+                Expanded(
+                  child: filteredRequests.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.swap_horiz,
+                                size: 64,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Belum ada permintaan tukar shift',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => provider.refreshRequests(
+                            jenis: _filterJenis,
+                            startDate: _customRange?.start.toString().split(
+                              ' ',
+                            )[0],
+                            endDate: _customRange?.end.toString().split(' ')[0],
+                          ),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: filteredRequests.length,
+                            itemBuilder: (context, index) {
+                              return _buildRequestCard(filteredRequests[index]);
+                            },
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
@@ -637,8 +681,74 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
         },
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        label: const Text('Ajukan Tukar Shift'),
+        elevation: 4,
+        label: const Text(
+          'Ajukan Tukar Shift',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         icon: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    double screenWidth,
+    double screenHeight,
+    double padding,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: padding,
+        vertical: screenHeight * 0.02,
+      ),
+      color: Colors.white,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                size: screenWidth * 0.045,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            "Tukar Shift",
+            style: TextStyle(
+              fontSize: screenWidth * 0.048,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: _showFilterDialog,
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.filter_alt,
+                size: screenWidth * 0.05,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -651,8 +761,10 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
         label: Text('$label ($count)'),
         selected: selected,
         onSelected: (_) {
-          setState(() => _filterTab = value);
-          _loadData();
+          // Hanya update state, tidak reload data
+          if (_filterTab != value) {
+            setState(() => _filterTab = value);
+          }
         },
         selectedColor: AppColors.primary,
         backgroundColor: Colors.grey.shade200,
@@ -662,6 +774,11 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
         ),
       ),
     );
+  }
+
+  List _getFilteredList(List requests) {
+    if (_filterTab == "all") return requests;
+    return requests.where((req) => req.status == _filterTab).toList();
   }
 
   Widget _buildRequestCard(request) {
@@ -693,11 +810,11 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade200,
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
@@ -705,14 +822,13 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
             ),
             child: Row(
@@ -762,19 +878,27 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   onTapDown: (details) {
                     _showActionMenu(request, details.globalPosition);
                   },
-                  child: Icon(Icons.more_vert, color: Colors.grey.shade600),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.more_vert,
+                      color: Colors.grey.shade700,
+                      size: 20,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-
-          // Body
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Shift exchange visualization
                 Row(
                   children: [
                     Expanded(
@@ -789,10 +913,17 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: const Icon(
-                        Icons.swap_horiz,
-                        color: AppColors.primary,
-                        size: 32,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.swap_horiz,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -807,11 +938,8 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 12),
                 const Divider(),
-
-                // Footer info
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -849,7 +977,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(

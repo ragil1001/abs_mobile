@@ -1,18 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/constants/app_colors.dart';
+import '../../core/mixins/auto_refresh_mixin.dart';
 
-class DetailAbsensiPage extends StatelessWidget {
+class DetailAbsensiPage extends StatefulWidget {
   final Map<String, dynamic> data;
 
   const DetailAbsensiPage({super.key, required this.data});
+
+  @override
+  State<DetailAbsensiPage> createState() => _DetailAbsensiPageState();
+}
+
+class _DetailAbsensiPageState extends State<DetailAbsensiPage>
+    with AutoRefreshMixin<DetailAbsensiPage> {
+  @override
+  Duration get refreshDebounce => const Duration(seconds: 30);
+
+  @override
+  Future<void> onRefresh() async {
+    // Detail absensi biasanya static, tidak perlu refresh
+    // Tetapi kita tetap implement untuk konsistensi
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
 
   Future<void> _openGoogleMaps(
     BuildContext context,
     double lat,
     double lon,
   ) async {
-    // Try opening Google Maps app first with geo URI
     final geoUri = Uri.parse('geo:$lat,$lon?q=$lat,$lon');
 
     if (await canLaunchUrl(geoUri)) {
@@ -20,7 +36,6 @@ class DetailAbsensiPage extends StatelessWidget {
       return;
     }
 
-    // Fallback to web URL
     final webUrl = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$lat,$lon',
     );
@@ -30,7 +45,6 @@ class DetailAbsensiPage extends StatelessWidget {
       return;
     }
 
-    // If both fail, show error message
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -65,12 +79,11 @@ class DetailAbsensiPage extends StatelessWidget {
       "November",
       "Desember",
     ];
-
     return "${hari[tanggal.weekday % 7]}, ${tanggal.day} ${bulan[tanggal.month - 1]} ${tanggal.year}";
   }
 
   String _getShiftText() {
-    final shift = data["shift"] as Map<String, dynamic>?;
+    final shift = widget.data["shift"] as Map<String, dynamic>?;
     if (shift == null) return "-";
 
     final kode = shift['kode'] ?? '';
@@ -85,194 +98,517 @@ class DetailAbsensiPage extends StatelessWidget {
   }
 
   List<String> _getBadgeList() {
-    final badge = data["badge"] as List<dynamic>?;
+    final badge = widget.data["badge"] as List<dynamic>?;
     if (badge == null || badge.isEmpty) return [];
     return badge.map((e) => e.toString()).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final tanggal = data["tanggal"] as DateTime;
-    final karyawan = data["karyawan"] as Map<String, dynamic>? ?? {};
-    final project = data["project"] as Map<String, dynamic>? ?? {};
-    final presensiMasuk = data["presensi_masuk"] as Map<String, dynamic>?;
-    final presensiPulang = data["presensi_pulang"] as Map<String, dynamic>?;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.06;
+
+    final tanggal = widget.data["tanggal"] as DateTime;
+    final karyawan = widget.data["karyawan"] as Map<String, dynamic>? ?? {};
+    final project = widget.data["project"] as Map<String, dynamic>? ?? {};
+    final presensiMasuk =
+        widget.data["presensi_masuk"] as Map<String, dynamic>?;
+    final presensiPulang =
+        widget.data["presensi_pulang"] as Map<String, dynamic>?;
     final badges = _getBadgeList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Detail Data Absensi"),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Tanggal dan badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 24),
-                  const SizedBox(width: 8),
-                  Column(
+      backgroundColor: const Color.fromARGB(255, 254, 253, 253),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(context, screenWidth, screenHeight, padding),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => triggerRefresh(force: true),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.all(padding),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _buildDateCard(tanggal, badges, screenWidth),
+                      const SizedBox(height: 16),
+                      _buildShiftCard(screenWidth),
+                      const SizedBox(height: 16),
+                      _buildEmployeeCard(karyawan, screenWidth),
+                      const SizedBox(height: 16),
+                      _buildProjectCard(project, screenWidth, context),
+                      const SizedBox(height: 16),
                       Text(
-                        _formatTanggal(tanggal),
-                        style: const TextStyle(
-                          fontSize: 16,
+                        'Detail Absensi',
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.045,
                           fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          letterSpacing: 0.3,
                         ),
                       ),
-                      Text(
-                        _getShiftText(),
-                        style: const TextStyle(color: Colors.black54),
+                      const SizedBox(height: 12),
+                      _buildAttendanceCard(
+                        context,
+                        title: "Absen Masuk",
+                        presensi: presensiMasuk,
+                        color: Colors.green,
+                        icon: Icons.login,
+                        screenWidth: screenWidth,
                       ),
+                      const SizedBox(height: 12),
+                      _buildAttendanceCard(
+                        context,
+                        title: "Absen Pulang",
+                        presensi: presensiPulang,
+                        color: Colors.orange,
+                        icon: Icons.logout,
+                        screenWidth: screenWidth,
+                      ),
+                      const SizedBox(height: 20),
                     ],
                   ),
-                ],
-              ),
-              if (badges.isNotEmpty)
-                Wrap(
-                  spacing: 4,
-                  children: badges.map((badge) {
-                    return Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        badge,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    );
-                  }).toList(),
                 ),
-            ],
-          ),
-          const SizedBox(height: 16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // Informasi Karyawan
-          _infoRow("Nama Karyawan", karyawan["nama"] ?? "-"),
-          _infoRow("Nomor Induk Karyawan (NIK)", karyawan["nik"] ?? "-"),
-          _infoRow(
-            "Jabatan",
-            karyawan["jabatan"] != null ? karyawan["jabatan"]["nama"] : "-",
+  Widget _buildHeader(
+    BuildContext context,
+    double screenWidth,
+    double screenHeight,
+    double padding,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: padding,
+        vertical: screenHeight * 0.02,
+      ),
+      color: Colors.white,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                size: screenWidth * 0.045,
+                color: Colors.black87,
+              ),
+            ),
           ),
-          _infoRow(
-            "Divisi",
-            karyawan["divisi"] != null ? karyawan["divisi"]["nama"] : "-",
+          const Spacer(),
+          Text(
+            "Detail Absensi",
+            style: TextStyle(
+              fontSize: screenWidth * 0.048,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              letterSpacing: 0.5,
+            ),
           ),
-          _infoRow("Project", project["nama"] ?? "-"),
+          const Spacer(),
+          SizedBox(width: screenWidth * 0.1),
+        ],
+      ),
+    );
+  }
 
-          // Lokasi Project dengan link ke Google Maps
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+  Widget _buildDateCard(
+    DateTime tanggal,
+    List<String> badges,
+    double screenWidth,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withOpacity(0.2),
+            AppColors.primary.withOpacity(0.1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.9))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.calendar_today,
+              color: Colors.white,
+              size: screenWidth * 0.07,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Lokasi Project",
-                  style: TextStyle(color: Colors.black54, fontSize: 14),
+                Text(
+                  _formatTanggal(tanggal),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        project["lokasi"] != null
-                            ? project["lokasi"]["nama"] ?? "-"
-                            : "-",
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    if (project["lokasi"] != null &&
-                        project["lokasi"]["latitude"] != null &&
-                        project["lokasi"]["longitude"] != null)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.location_pin,
-                          color: Colors.blue,
-                        ),
-                        onPressed: () {
-                          final lat = (project["lokasi"]["latitude"] as num)
-                              .toDouble();
-                          final lon = (project["lokasi"]["longitude"] as num)
-                              .toDouble();
-                          _openGoogleMaps(context, lat, lon);
-                        },
-                        tooltip: "Buka di Google Maps",
-                      ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  _getShiftText(),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
           ),
+          if (badges.isNotEmpty)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: badges.map((badge) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    badge,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
 
-          const Divider(height: 32, thickness: 1),
-
-          const Text(
-            "Absensi",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  Widget _buildShiftCard(double screenWidth) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-          const SizedBox(height: 12),
-
-          // Card Masuk
-          _absensiCard(
-            context,
-            title: "Masuk",
-            presensi: presensiMasuk,
-            color: Colors.green,
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.access_time,
+              color: Colors.purple.shade600,
+              size: 24,
+            ),
           ),
-
-          const SizedBox(height: 12),
-
-          // Card Pulang
-          _absensiCard(
-            context,
-            title: "Pulang",
-            presensi: presensiPulang,
-            color: Colors.red,
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Shift Kerja',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.032,
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _getShiftText(),
+                style: TextStyle(
+                  fontSize: screenWidth * 0.04,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+  Widget _buildEmployeeCard(Map<String, dynamic> karyawan, double screenWidth) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.black54, fontSize: 14),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.person,
+                  color: Colors.blue.shade600,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Informasi Karyawan',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.042,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
           ),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          const SizedBox(height: 16),
+          _buildInfoRow("Nama", karyawan["nama"] ?? "-", screenWidth),
+          _buildInfoRow("NIK", karyawan["nik"] ?? "-", screenWidth),
+          _buildInfoRow(
+            "Jabatan",
+            karyawan["jabatan"] != null ? karyawan["jabatan"]["nama"] : "-",
+            screenWidth,
+          ),
+          _buildInfoRow(
+            "Divisi",
+            karyawan["divisi"] != null ? karyawan["divisi"]["nama"] : "-",
+            screenWidth,
+            isLast: true,
           ),
         ],
       ),
     );
   }
 
-  Widget _absensiCard(
+  Widget _buildProjectCard(
+    Map<String, dynamic> project,
+    double screenWidth,
+    BuildContext context,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.business,
+                  color: Colors.orange.shade600,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Project',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.042,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildInfoRow("Nama Project", project["nama"] ?? "-", screenWidth),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Lokasi Project",
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.034,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        project["lokasi"] != null
+                            ? project["lokasi"]["nama"] ?? "-"
+                            : "-",
+                        style: TextStyle(
+                          fontSize: screenWidth * 0.038,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (project["lokasi"] != null &&
+                    project["lokasi"]["latitude"] != null &&
+                    project["lokasi"]["longitude"] != null)
+                  GestureDetector(
+                    onTap: () {
+                      final lat = (project["lokasi"]["latitude"] as num)
+                          .toDouble();
+                      final lon = (project["lokasi"]["longitude"] as num)
+                          .toDouble();
+                      _openGoogleMaps(context, lat, lon);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.location_pin,
+                            color: Colors.blue.shade600,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Buka',
+                            style: TextStyle(
+                              color: Colors.blue.shade600,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(
+    String label,
+    String value,
+    double screenWidth, {
+    bool isLast = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: screenWidth * 0.28,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: screenWidth * 0.034,
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: screenWidth * 0.038,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceCard(
     BuildContext context, {
     required String title,
     required Map<String, dynamic>? presensi,
     required Color color,
+    required IconData icon,
+    required double screenWidth,
   }) {
     String jam = "-";
     String keterangan = "-";
@@ -281,18 +617,14 @@ class DetailAbsensiPage extends StatelessWidget {
     double? longitude;
 
     if (presensi != null) {
-      // Format jam (HH:mm tanpa detik)
       if (presensi["waktu"] != null) {
         final waktu = presensi["waktu"] as String;
-
         try {
-          // Jika format ISO 8601 (2025-10-02T06:40:02.0000 atau 2025-10-02T06:40)
           if (waktu.contains('T')) {
             final dateTime = DateTime.parse(waktu);
             jam =
                 "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
           } else {
-            // Jika sudah format HH:mm:ss atau HH:mm
             final parts = waktu.split(":");
             if (parts.length >= 2) {
               jam = "${parts[0]}:${parts[1]}";
@@ -307,16 +639,6 @@ class DetailAbsensiPage extends StatelessWidget {
 
       keterangan = presensi["keterangan"] ?? "-";
       fotoUrl = presensi["foto_url"];
-
-      // Debug print
-      if (fotoUrl != null) {
-        print('=== FOTO URL DEBUG ===');
-        print('Title: $title');
-        print('URL: $fotoUrl');
-        print('URL Type: ${fotoUrl.runtimeType}');
-        print('Is Empty: ${fotoUrl.isEmpty}');
-      }
-
       latitude = presensi["latitude"] != null
           ? double.tryParse(presensi["latitude"].toString())
           : null;
@@ -326,100 +648,197 @@ class DetailAbsensiPage extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border(left: BorderSide(color: color, width: 4)),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.15),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
         children: [
-          // konten kiri (judul, jam, keterangan)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(color: Colors.black54, fontSize: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
-              Text(
-                jam,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text("Keterangan", style: TextStyle(color: Colors.black54)),
-              Text(keterangan),
-            ],
-          ),
-
-          // foto & lokasi di pojok kanan atas
-          Positioned(
-            right: 0,
-            top: 0,
+            ),
             child: Row(
               children: [
-                if (fotoUrl != null && fotoUrl.isNotEmpty)
-                  Builder(
-                    builder: (context) {
-                      final url = fotoUrl; // Create local final variable
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FullFotoPage(fotoUrl: url!),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.04,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      size: 20,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Waktu',
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.034,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      jam,
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.042,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Text(
+                  'Keterangan',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.034,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Text(
+                    keterangan,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.036,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    if (fotoUrl != null && fotoUrl.isNotEmpty)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FullFotoPage(fotoUrl: fotoUrl!),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.blue.withOpacity(0.2),
+                              ),
                             ),
-                          );
-                        },
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.grey[300],
-                          child: ClipOval(
-                            child: Image.network(
-                              url!,
-                              width: 36,
-                              height: 36,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.person, size: 20);
-                              },
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return const SizedBox(
-                                      width: 36,
-                                      height: 36,
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    );
-                                  },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.photo,
+                                  color: Colors.blue.shade600,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Lihat Foto',
+                                  style: TextStyle(
+                                    color: Colors.blue.shade600,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: screenWidth * 0.034,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                const SizedBox(width: 8),
-                if (latitude != null && longitude != null)
-                  IconButton(
-                    icon: const Icon(Icons.location_pin, color: Colors.red),
-                    onPressed: () {
-                      _openGoogleMaps(context, latitude!, longitude!);
-                    },
-                  ),
+                      ),
+                    if (fotoUrl != null &&
+                        fotoUrl.isNotEmpty &&
+                        latitude != null &&
+                        longitude != null)
+                      const SizedBox(width: 12),
+                    if (latitude != null && longitude != null)
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            _openGoogleMaps(context, latitude!, longitude!);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.green.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.location_pin,
+                                  color: Colors.green.shade600,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Lihat Lokasi',
+                                  style: TextStyle(
+                                    color: Colors.green.shade600,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: screenWidth * 0.034,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -489,14 +908,41 @@ class FullFotoPage extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            top: 40,
-            left: 20,
-            child: CircleAvatar(
-              backgroundColor: Colors.black54,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Foto Presensi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
               ),
             ),
           ),

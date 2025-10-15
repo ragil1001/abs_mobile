@@ -25,19 +25,40 @@ class TukarShiftRequest {
 
   factory TukarShiftRequest.fromJson(Map<String, dynamic> json) {
     return TukarShiftRequest(
-      id: json['id'] ?? 0,
-      status: json['status'] ?? '',
-      jenis: json['jenis'] ?? '',
-      tanggalRequest: DateTime.parse(json['tanggal_request']),
-      shiftSaya: ShiftInfo.fromJson(json['shift_saya']),
-      shiftDiminta: ShiftInfo.fromJson(json['shift_diminta']),
-      karyawanTujuan: KaryawanTujuan.fromJson(json['karyawan_tujuan']),
-      catatan: json['catatan'],
-      alasanPenolakan: json['alasan_penolakan'],
+      id: _parseInt(json['id']),
+      status: json['status']?.toString() ?? '',
+      jenis: json['jenis']?.toString() ?? '',
+      tanggalRequest: _parseDateTime(json['tanggal_request']),
+      shiftSaya: ShiftInfo.fromJson(json['shift_saya'] ?? {}),
+      shiftDiminta: ShiftInfo.fromJson(json['shift_diminta'] ?? {}),
+      karyawanTujuan: KaryawanTujuan.fromJson(json['karyawan_tujuan'] ?? {}),
+      catatan: json['catatan']?.toString(),
+      alasanPenolakan: json['alasan_penolakan']?.toString(),
       tanggalDiproses: json['tanggal_diproses'] != null
-          ? DateTime.parse(json['tanggal_diproses'])
+          ? _parseDateTime(json['tanggal_diproses'])
           : null,
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        print('Error parsing DateTime: $value, error: $e');
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
   }
 }
 
@@ -62,14 +83,35 @@ class ShiftInfo {
 
   factory ShiftInfo.fromJson(Map<String, dynamic> json) {
     return ShiftInfo(
-      jadwalId: json['jadwal_id'] ?? 0,
-      tanggal: DateTime.parse(json['tanggal']),
-      hari: json['hari'] ?? '',
-      shiftCode: json['shift_code'] ?? '',
-      waktuMulai: json['waktu_mulai'],
-      waktuSelesai: json['waktu_selesai'],
-      waktu: json['waktu'],
+      jadwalId: _parseInt(json['jadwal_id'] ?? json['id']),
+      tanggal: _parseDateTime(json['tanggal']),
+      hari: json['hari']?.toString() ?? '',
+      shiftCode: json['shift_code']?.toString() ?? '',
+      waktuMulai: json['waktu_mulai']?.toString(),
+      waktuSelesai: json['waktu_selesai']?.toString(),
+      waktu: json['waktu']?.toString(),
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        print('Error parsing DateTime: $value, error: $e');
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
   }
 }
 
@@ -92,13 +134,21 @@ class KaryawanTujuan {
 
   factory KaryawanTujuan.fromJson(Map<String, dynamic> json) {
     return KaryawanTujuan(
-      id: json['id'] ?? 0,
-      nama: json['nama'] ?? '',
-      nik: json['nik'] ?? '',
-      noTelp: json['no_telp'] ?? '',
-      divisi: json['divisi'] ?? '',
-      jabatan: json['jabatan'] ?? '',
+      id: _parseInt(json['id']),
+      nama: json['nama']?.toString() ?? '',
+      nik: json['nik']?.toString() ?? '',
+      noTelp: json['no_telp']?.toString() ?? '',
+      divisi: json['divisi']?.toString() ?? '',
+      jabatan: json['jabatan']?.toString() ?? '',
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 }
 
@@ -124,44 +174,45 @@ class JadwalShift {
   factory JadwalShift.fromJson(Map<String, dynamic> json) {
     print('Parsing JadwalShift from JSON: $json'); // DEBUG
 
-    // PERBAIKAN: Parse ID dengan benar dari berbagai tipe
-    int parseId(dynamic value) {
-      if (value == null) return 0;
-      if (value is int) return value;
-      if (value is String) return int.tryParse(value) ?? 0;
-      return 0;
-    }
-
-    // PERBAIKAN: Parse tanggal dengan lebih robust
-    DateTime parseTanggal(dynamic value) {
-      if (value == null) return DateTime.now();
-      if (value is String) {
-        try {
-          return DateTime.parse(value);
-        } catch (e) {
-          print('Error parsing date: $value, error: $e');
-          return DateTime.now();
-        }
-      }
-      return DateTime.now();
-    }
-
-    final parsedId = parseId(json['id'] ?? json['jadwal_id']);
+    final parsedId = _parseInt(json['id'] ?? json['jadwal_id']);
     print(
       'Parsed ID: $parsedId from json[id]=${json['id']}, json[jadwal_id]=${json['jadwal_id']}',
     ); // DEBUG
 
     return JadwalShift(
       id: parsedId,
-      tanggal: parseTanggal(json['tanggal']),
+      tanggal: _parseDateTime(json['tanggal']),
       hari: json['hari']?.toString() ?? '',
       shiftCode: json['shift_code']?.toString() ?? '',
       waktuMulai: json['waktu_mulai']?.toString(),
       waktuSelesai: json['waktu_selesai']?.toString(),
       isLibur:
           json['is_libur'] == true ||
+          json['is_libur'] == 1 ||
+          json['is_libur']?.toString().toLowerCase() == 'true' ||
           json['shift_code']?.toString().toUpperCase() == 'L',
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        print('Error parsing DateTime: $value, error: $e');
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
   }
 
   @override
@@ -191,13 +242,21 @@ class KaryawanWithShift {
 
   factory KaryawanWithShift.fromJson(Map<String, dynamic> json) {
     return KaryawanWithShift(
-      id: json['id'] ?? 0,
-      nama: json['nama'] ?? '',
-      nik: json['nik'] ?? '',
-      noTelp: json['no_telp'] ?? '',
-      divisi: json['divisi'] ?? '',
-      jabatan: json['jabatan'] ?? '',
-      shift: ShiftInfo.fromJson(json['shift']),
+      id: _parseInt(json['id']),
+      nama: json['nama']?.toString() ?? '',
+      nik: json['nik']?.toString() ?? '',
+      noTelp: json['no_telp']?.toString() ?? '',
+      divisi: json['divisi']?.toString() ?? '',
+      jabatan: json['jabatan']?.toString() ?? '',
+      shift: ShiftInfo.fromJson(json['shift'] ?? {}),
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 }

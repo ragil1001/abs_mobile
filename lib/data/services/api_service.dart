@@ -24,7 +24,7 @@ class ApiService {
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'X-Requested-With': 'FlutterApp', // Tambahkan ini
+      'X-Requested-With': 'FlutterApp',
       if (token != null) 'Authorization': 'Bearer $token',
     };
   }
@@ -121,15 +121,25 @@ class ApiService {
     }
   }
 
-  // DELETE request
-  Future<dynamic> delete(String endpoint) async {
+  // DELETE request (dengan optional body untuk FCM token)
+  Future<dynamic> delete(String endpoint, {Map<String, dynamic>? data}) async {
     try {
       final url = Uri.parse('${AppConfig.baseUrl}$endpoint');
       final headers = await _getHeaders();
 
-      final response = await http
-          .delete(url, headers: headers)
-          .timeout(AppConfig.connectionTimeout);
+      http.Response response;
+
+      if (data != null && data.isNotEmpty) {
+        // DELETE dengan body (untuk FCM token)
+        response = await http
+            .delete(url, headers: headers, body: json.encode(data))
+            .timeout(AppConfig.connectionTimeout);
+      } else {
+        // DELETE tanpa body (normal)
+        response = await http
+            .delete(url, headers: headers)
+            .timeout(AppConfig.connectionTimeout);
+      }
 
       return _handleResponse(response);
     } on SocketException {

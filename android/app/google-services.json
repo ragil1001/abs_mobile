@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "266972012359",
+    "firebase_url": "https://presensi-app-d9e2c-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "presensi-app-d9e2c",
+    "storage_bucket": "presensi-app-d9e2c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:266972012359:android:afc5a01352d8b555667662",
+        "android_client_info": {
+          "package_name": "com.example.abs"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRBhiUd0Umt3DMdgf3orcsbLD7-W4A1t0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

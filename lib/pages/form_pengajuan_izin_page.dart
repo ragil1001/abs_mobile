@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../providers/izin_provider.dart';
-import '../providers/auth_provider.dart';
 import '../core/constants/app_colors.dart';
+import '../components/custom_snackbar.dart';
 
 class FormPengajuanIzinPage extends StatefulWidget {
   const FormPengajuanIzinPage({super.key});
@@ -24,22 +24,9 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
   File? _selectedFile;
   bool _isSubmitting = false;
 
-  // Opsi jenis izin dengan detail
   final List<Map<String, dynamic>> _jenisIzinOptions = [
-    {
-      'value': 'Sakit',
-      'label': 'Sakit',
-      'icon': Icons.local_hospital,
-      'color': Colors.red,
-      'description': 'Izin karena kondisi kesehatan',
-    },
-    {
-      'value': 'Cuti',
-      'label': 'Cuti',
-      'icon': Icons.beach_access,
-      'color': Colors.blue,
-      'description': 'Cuti tahunan atau keperluan pribadi',
-    },
+    {'value': 'Sakit', 'label': 'Sakit'},
+    {'value': 'Cuti', 'label': 'Cuti'},
   ];
 
   @override
@@ -98,12 +85,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
 
         if (fileSize > 10 * 1024 * 1024) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ukuran file maksimal 10MB'),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          CustomSnackbar.showError(context, 'Ukuran file maksimal 10MB');
           return;
         }
 
@@ -113,12 +95,7 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal memilih file: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      CustomSnackbar.showError(context, 'Gagal memilih file: ${e.toString()}');
     }
   }
 
@@ -128,103 +105,70 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
     });
   }
 
-  // Show custom dialog for selecting jenis izin
   Future<void> _showJenisIzinDialog() async {
     final selected = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.category, color: AppColors.primary, size: 28),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Pilih Jenis Izin',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                const Text(
+                  'Pilih Jenis Izin',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 ...(_jenisIzinOptions.map((option) {
                   final isSelected = _jenisIzin == option['value'];
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 6),
                     child: InkWell(
                       onTap: () {
                         Navigator.of(context).pop(option['value']);
                       },
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? option['color'].withOpacity(0.1)
+                              ? AppColors.primary.withOpacity(0.1)
                               : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isSelected
-                                ? option['color']
-                                : Colors.grey.shade300,
-                            width: isSelected ? 2 : 1,
+                                ? AppColors.primary
+                                : Colors.grey.shade200,
+                            width: isSelected ? 1.5 : 1,
                           ),
                         ),
                         child: Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: option['color'].withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                option['icon'],
-                                color: option['color'],
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    option['label'],
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: isSelected
-                                          ? option['color']
-                                          : Colors.black87,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    option['description'],
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                option['label'],
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : Colors.black87,
+                                ),
                               ),
                             ),
                             if (isSelected)
-                              Icon(
-                                Icons.check_circle,
-                                color: option['color'],
-                                size: 24,
+                              const Icon(
+                                Icons.check_rounded,
+                                color: AppColors.primary,
+                                size: 20,
                               ),
                           ],
                         ),
@@ -232,14 +176,6 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
                     ),
                   );
                 }).toList()),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Batal'),
-                  ),
-                ),
               ],
             ),
           ),
@@ -260,22 +196,12 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
     }
 
     if (_tanggalMulai == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanggal mulai wajib dipilih'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      CustomSnackbar.showWarning(context, 'Tanggal mulai wajib dipilih');
       return;
     }
 
     if (_tanggalSelesai == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanggal selesai wajib dipilih'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      CustomSnackbar.showWarning(context, 'Tanggal selesai wajib dipilih');
       return;
     }
 
@@ -303,24 +229,14 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
       });
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pengajuan izin berhasil dikirim'),
-            backgroundColor: AppColors.success,
-            duration: Duration(seconds: 2),
-          ),
-        );
-
+        CustomSnackbar.showSuccess(context, 'Pengajuan izin berhasil dikirim');
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(izinProvider.errorMessage ?? 'Gagal mengajukan izin'),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 3),
-          ),
+        CustomSnackbar.showError(
+          context,
+          izinProvider.errorMessage ?? 'Gagal mengajukan izin',
         );
       }
     } catch (e) {
@@ -330,374 +246,492 @@ class _FormPengajuanIzinPageState extends State<FormPengajuanIzinPage> {
         _isSubmitting = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Terjadi kesalahan: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      CustomSnackbar.showError(context, 'Terjadi kesalahan: ${e.toString()}');
     }
-  }
-
-  // Get selected option details
-  Map<String, dynamic>? get _selectedOption {
-    if (_jenisIzin == null) return null;
-    return _jenisIzinOptions.firstWhere(
-      (option) => option['value'] == _jenisIzin,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.06;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pengajuan Izin'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
           children: [
-            // Info Box
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Pastikan tanggal yang dipilih ada dalam jadwal kerja Anda',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.blue.shade900,
+            _buildHeader(context, screenWidth, screenHeight, padding),
+            Expanded(
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: padding,
+                    vertical: screenHeight * 0.02,
+                  ),
+                  children: [
+                    // Jenis Izin
+                    _buildSectionLabel('Jenis Izin', isRequired: true),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: _isSubmitting ? null : _showJenisIzinDialog,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _jenisIzin != null
+                                ? AppColors.primary.withOpacity(0.3)
+                                : Colors.grey.shade200,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _jenisIzin ?? 'Pilih jenis izin',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: _jenisIzin != null
+                                      ? Colors.black87
+                                      : Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.grey.shade500,
+                              size: 24,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Jenis Izin - Custom Display
-            const Text(
-              'Jenis Izin *',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: _isSubmitting ? null : _showJenisIzinDialog,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _selectedOption != null
-                        ? _selectedOption!['color'].withOpacity(0.5)
-                        : Colors.grey.shade300,
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    if (_selectedOption != null)
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: _selectedOption!['color'].withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                    if (_jenisIzin == null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: Text(
+                          'Jenis izin wajib dipilih',
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 12,
+                          ),
                         ),
-                        child: Icon(
-                          _selectedOption!['icon'],
-                          color: _selectedOption!['color'],
-                          size: 24,
+                      ),
+                    const SizedBox(height: 24),
+
+                    // Tanggal Mulai
+                    _buildSectionLabel('Mulai Dari', isRequired: true),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: _isSubmitting ? null : () => _pickDate(true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _tanggalMulai != null
+                                ? AppColors.primary.withOpacity(0.3)
+                                : Colors.grey.shade200,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_outlined,
+                              color: _tanggalMulai != null
+                                  ? AppColors.primary
+                                  : Colors.grey.shade600,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _tanggalMulai == null
+                                    ? 'Pilih tanggal'
+                                    : DateFormat(
+                                        'dd MMMM yyyy',
+                                        'id_ID',
+                                      ).format(_tanggalMulai!),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: _tanggalMulai == null
+                                      ? Colors.grey.shade600
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Tanggal Selesai
+                    _buildSectionLabel('Sampai', isRequired: true),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: _isSubmitting ? null : () => _pickDate(false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _tanggalSelesai != null
+                                ? AppColors.primary.withOpacity(0.3)
+                                : Colors.grey.shade200,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.event_outlined,
+                              color: _tanggalSelesai != null
+                                  ? AppColors.primary
+                                  : Colors.grey.shade600,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _tanggalSelesai == null
+                                    ? 'Pilih tanggal'
+                                    : DateFormat(
+                                        'dd MMMM yyyy',
+                                        'id_ID',
+                                      ).format(_tanggalSelesai!),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: _tanggalSelesai == null
+                                      ? Colors.grey.shade600
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Durasi
+                    if (_tanggalMulai != null && _tanggalSelesai != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.primary.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Durasi: ${_tanggalSelesai!.difference(_tanggalMulai!).inDays + 1} hari',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+
+                    // Keterangan
+                    _buildSectionLabel('Keterangan', isRequired: false),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _keteranganController,
+                      enabled: !_isSubmitting,
+                      maxLines: 3,
+                      maxLength: 1000,
+                      decoration: InputDecoration(
+                        hintText: 'Jelaskan alasan pengajuan izin Anda',
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 14,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.primary,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        contentPadding: const EdgeInsets.all(14),
+                      ),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Upload File
+                    _buildSectionLabel(
+                      'Dokumen Pendukung (PDF)',
+                      isRequired: false,
+                    ),
+                    const SizedBox(height: 8),
+                    if (_selectedFile == null)
+                      InkWell(
+                        onTap: _isSubmitting ? null : _pickFile,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 24,
+                            horizontal: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.grey.shade300,
+                              width: 1.5,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.grey.shade50,
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.cloud_upload_outlined,
+                                size: 44,
+                                color: AppColors.primary.withOpacity(0.5),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Tap untuk upload file PDF',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Maksimal 10MB',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       )
                     else
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primary),
+                          borderRadius: BorderRadius.circular(12),
+                          color: AppColors.primary.withOpacity(0.05),
                         ),
-                        child: Icon(
-                          Icons.category,
-                          color: Colors.grey.shade600,
-                          size: 24,
-                        ),
-                      ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedOption != null
-                                ? _selectedOption!['label']
-                                : 'Pilih jenis izin',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: _selectedOption != null
-                                  ? Colors.black87
-                                  : Colors.grey.shade600,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.picture_as_pdf_outlined,
+                              color: AppColors.error,
+                              size: 28,
                             ),
-                          ),
-                          if (_selectedOption != null)
-                            Text(
-                              _selectedOption!['description'],
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedFile!.path.split('/').last,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  FutureBuilder<int>(
+                                    future: _selectedFile!.length(),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.hasData) {
+                                        final sizeInMB =
+                                            snapshot.data! / (1024 * 1024);
+                                        return Text(
+                                          '${sizeInMB.toStringAsFixed(2)} MB',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
-                        ],
+                            IconButton(
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: AppColors.error,
+                              ),
+                              onPressed: _isSubmitting ? null : _removeFile,
+                            ),
+                          ],
+                        ),
                       ),
+                    const SizedBox(height: 32),
+
+                    // Submit Button
+                    ElevatedButton(
+                      onPressed: _isSubmitting ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'AJUKAN IZIN',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
                     ),
-                    Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
-            ),
-            if (_jenisIzin == null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8, left: 12),
-                child: Text(
-                  'Jenis izin wajib dipilih',
-                  style: TextStyle(color: Colors.red.shade700, fontSize: 12),
-                ),
-              ),
-            const SizedBox(height: 16),
-
-            // Tanggal Mulai
-            InkWell(
-              onTap: _isSubmitting ? null : () => _pickDate(true),
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: 'Mulai Dari *',
-                  prefixIcon: const Icon(Icons.calendar_today),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-                child: Text(
-                  _tanggalMulai == null
-                      ? 'Pilih tanggal'
-                      : DateFormat(
-                          'dd MMMM yyyy',
-                          'id_ID',
-                        ).format(_tanggalMulai!),
-                  style: TextStyle(
-                    color: _tanggalMulai == null ? Colors.grey : Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Tanggal Selesai
-            InkWell(
-              onTap: _isSubmitting ? null : () => _pickDate(false),
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: 'Sampai *',
-                  prefixIcon: const Icon(Icons.event),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-                child: Text(
-                  _tanggalSelesai == null
-                      ? 'Pilih tanggal'
-                      : DateFormat(
-                          'dd MMMM yyyy',
-                          'id_ID',
-                        ).format(_tanggalSelesai!),
-                  style: TextStyle(
-                    color: _tanggalSelesai == null
-                        ? Colors.grey
-                        : Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-
-            if (_tanggalMulai != null && _tanggalSelesai != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Durasi: ${_tanggalSelesai!.difference(_tanggalMulai!).inDays + 1} hari',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-
-            const SizedBox(height: 16),
-
-            // Keterangan
-            TextFormField(
-              controller: _keteranganController,
-              enabled: !_isSubmitting,
-              maxLines: 4,
-              maxLength: 1000,
-              decoration: InputDecoration(
-                labelText: 'Keterangan',
-                hintText: 'Jelaskan alasan pengajuan izin Anda (opsional)',
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.only(bottom: 60),
-                  child: Icon(Icons.description),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Upload File
-            const Text(
-              'Upload Dokumen Pendukung (PDF) - Opsional',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-
-            if (_selectedFile == null)
-              InkWell(
-                onTap: _isSubmitting ? null : _pickFile,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.grey.shade50,
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.upload_file,
-                        size: 48,
-                        color: AppColors.primary.withOpacity(0.6),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Tap untuk pilih file PDF',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Maksimal 10MB',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.primary),
-                  borderRadius: BorderRadius.circular(12),
-                  color: AppColors.primary.withOpacity(0.05),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.picture_as_pdf, color: AppColors.error),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedFile!.path.split('/').last,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          FutureBuilder<int>(
-                            future: _selectedFile!.length(),
-                            builder: (context, snapshot) {
-                              if (snapshot.hasData) {
-                                final sizeInMB = snapshot.data! / (1024 * 1024);
-                                return Text(
-                                  '${sizeInMB.toStringAsFixed(2)} MB',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                );
-                              }
-                              return const Text('-');
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: AppColors.error),
-                      onPressed: _isSubmitting ? null : _removeFile,
-                    ),
-                  ],
-                ),
-              ),
-
-            const SizedBox(height: 24),
-
-            // Submit Button
-            ElevatedButton(
-              onPressed: _isSubmitting ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
-              ),
-              child: _isSubmitting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Text(
-                      'AJUKAN IZIN',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    double screenWidth,
+    double screenHeight,
+    double padding,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: padding,
+        vertical: screenHeight * 0.015,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: screenWidth * 0.045,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            "Pengajuan Izin",
+            style: TextStyle(
+              fontSize: screenWidth * 0.048,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const Spacer(),
+          SizedBox(width: screenWidth * 0.1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String label, {required bool isRequired}) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        if (isRequired)
+          const Text(
+            ' *',
+            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+          ),
+      ],
     );
   }
 }

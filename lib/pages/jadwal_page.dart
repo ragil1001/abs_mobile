@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/jadwal_provider.dart';
 import '../providers/presensi_provider.dart';
 import '../core/constants/app_colors.dart';
+import '../components/shimmer_loading.dart';
 
 class JadwalPage extends StatefulWidget {
   const JadwalPage({super.key});
@@ -16,6 +17,8 @@ class _JadwalPageState extends State<JadwalPage> {
   String? _selectedBulan;
   List<PeriodOption> _periodOptions = [];
   bool _isInitialized = false;
+  bool _isRefreshing = false;
+  DateTime? _lastRefreshTime;
 
   @override
   void initState() {
@@ -35,8 +38,15 @@ class _JadwalPageState extends State<JadwalPage> {
     super.dispose();
   }
 
+  bool get _shouldRefresh {
+    if (_lastRefreshTime == null) return true;
+    return DateTime.now().difference(_lastRefreshTime!).inSeconds > 30;
+  }
+
   void _initializePeriods() async {
     if (_isInitialized) return;
+
+    setState(() => _isRefreshing = true);
 
     final presensiProvider = Provider.of<PresensiProvider>(
       context,
@@ -52,6 +62,7 @@ class _JadwalPageState extends State<JadwalPage> {
       if (mounted) {
         setState(() {
           _isInitialized = true;
+          _isRefreshing = false;
         });
       }
       return;
@@ -66,7 +77,6 @@ class _JadwalPageState extends State<JadwalPage> {
 
     while (currentDate.isBefore(endDate)) {
       final periodStart = DateTime(currentDate.year, currentDate.month, 1);
-
       final label = DateFormat('MMMM yyyy', 'id_ID').format(periodStart);
 
       periods.add(
@@ -85,6 +95,7 @@ class _JadwalPageState extends State<JadwalPage> {
       if (mounted) {
         setState(() {
           _isInitialized = true;
+          _isRefreshing = false;
         });
       }
       return;
@@ -102,15 +113,20 @@ class _JadwalPageState extends State<JadwalPage> {
         _selectedBulan = defaultPeriod.value;
         _isInitialized = true;
       });
-      _loadJadwal();
+      await _loadJadwal();
+
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
     }
   }
 
-  void _loadJadwal() {
-    if (_selectedBulan == null || !mounted) return;
+  Future<void> _loadJadwal() async {
+    if (_selectedBulan == null || !mounted || !_shouldRefresh) return;
 
+    _lastRefreshTime = DateTime.now();
     final jadwalProvider = Provider.of<JadwalProvider>(context, listen: false);
-    jadwalProvider.loadJadwalBulan(_selectedBulan!);
+    await jadwalProvider.loadJadwalBulan(_selectedBulan!);
   }
 
   void _previousMonth() {
@@ -122,6 +138,7 @@ class _JadwalPageState extends State<JadwalPage> {
     if (currentIndex > 0) {
       setState(() {
         _selectedBulan = _periodOptions[currentIndex - 1].value;
+        _lastRefreshTime = null;
       });
       _loadJadwal();
     }
@@ -136,6 +153,7 @@ class _JadwalPageState extends State<JadwalPage> {
     if (currentIndex < _periodOptions.length - 1) {
       setState(() {
         _selectedBulan = _periodOptions[currentIndex + 1].value;
+        _lastRefreshTime = null;
       });
       _loadJadwal();
     }
@@ -166,7 +184,6 @@ class _JadwalPageState extends State<JadwalPage> {
     return currentIndex < _periodOptions.length - 1;
   }
 
-  // TAMBAH: Show tukar shift info dialog
   void _showTukarShiftInfo(jadwal) {
     if (!jadwal.isDitukar || jadwal.tukarShiftInfo == null) return;
 
@@ -174,11 +191,25 @@ class _JadwalPageState extends State<JadwalPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Row(
             children: [
-              Icon(Icons.swap_horiz, color: AppColors.primary, size: 24),
-              const SizedBox(width: 8),
-              const Text('Shift Ditukar'),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.swap_horiz,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('Shift Ditukar', style: TextStyle(fontSize: 18)),
             ],
           ),
           content: Column(
@@ -189,27 +220,39 @@ class _JadwalPageState extends State<JadwalPage> {
                 'Shift ini telah ditukar dengan:',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withOpacity(0.1),
+                      AppColors.primary.withOpacity(0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.2),
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary.withOpacity(0.3),
+                            AppColors.primary.withOpacity(0.2),
+                          ],
+                        ),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.person,
                         color: AppColors.primary,
-                        size: 24,
+                        size: 26,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -219,6 +262,7 @@ class _JadwalPageState extends State<JadwalPage> {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
                       ),
                     ),
@@ -230,7 +274,16 @@ class _JadwalPageState extends State<JadwalPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Tutup'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Tutup', style: TextStyle(fontSize: 15)),
             ),
           ],
         );
@@ -240,146 +293,316 @@ class _JadwalPageState extends State<JadwalPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.06;
+
+    if (_isRefreshing) {
+      return Scaffold(
+        backgroundColor: const Color.fromARGB(255, 254, 253, 253),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(context, screenWidth, screenHeight, padding),
+              _buildMonthNavigationShimmer(screenWidth),
+              Expanded(child: _buildShimmerLayout(screenWidth, padding)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text('Jadwal Shift Kerja'),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
+      backgroundColor: const Color.fromARGB(255, 254, 253, 253),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(context, screenWidth, screenHeight, padding),
+            _buildMonthNavigation(screenWidth),
+            Expanded(
+              child: Consumer<JadwalProvider>(
+                builder: (context, provider, child) {
+                  if (provider.isLoading) {
+                    return _buildShimmerLayout(screenWidth, padding);
+                  }
+
+                  if (provider.errorMessage != null) {
+                    return _buildErrorState(provider.errorMessage!);
+                  }
+
+                  final jadwals = provider.jadwalBulan?.jadwals ?? [];
+
+                  if (jadwals.isEmpty) {
+                    return _buildEmptyState();
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      _lastRefreshTime = null;
+                      await provider.refreshJadwalBulan(_selectedBulan!);
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: jadwals.length,
+                      itemBuilder: (context, index) {
+                        final jadwal = jadwals[index];
+                        return _buildJadwalCard(jadwal);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
-      body: Column(
-        children: [
-          // Month Navigation Header
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+    );
+  }
+
+  Widget _buildShimmerLayout(double screenWidth, double padding) {
+    return ShimmerLoading(
+      child: ListView.builder(
+        padding: EdgeInsets.all(padding),
+        itemCount: 10,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                ShimmerBox(width: 60, height: 80, borderRadius: 12),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShimmerBox(
+                        width: screenWidth * 0.4,
+                        height: 16,
+                        borderRadius: 4,
+                      ),
+                      const SizedBox(height: 8),
+                      ShimmerBox(
+                        width: screenWidth * 0.3,
+                        height: 14,
+                        borderRadius: 4,
+                      ),
+                      const SizedBox(height: 8),
+                      ShimmerBox(
+                        width: screenWidth * 0.5,
+                        height: 14,
+                        borderRadius: 4,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  onPressed: _canGoPrevious ? _previousMonth : null,
-                  icon: const Icon(Icons.chevron_left),
-                  color: AppColors.primary,
-                  disabledColor: Colors.grey.shade300,
-                  iconSize: 28,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMonthNavigationShimmer(double screenWidth) {
+    return ShimmerLoading(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ShimmerBox(width: 40, height: 40, borderRadius: 10),
+            ShimmerBox(width: screenWidth * 0.5, height: 20, borderRadius: 4),
+            ShimmerBox(width: 40, height: 40, borderRadius: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: AppColors.error.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                _lastRefreshTime = null;
+                _loadJadwal();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
                 ),
-                Expanded(
-                  child: Text(
-                    _monthDisplay,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                IconButton(
-                  onPressed: _canGoNext ? _nextMonth : null,
-                  icon: const Icon(Icons.chevron_right),
-                  color: AppColors.primary,
-                  disabledColor: Colors.grey.shade300,
-                  iconSize: 28,
-                ),
-              ],
+              ),
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.calendar_today_outlined,
+            size: 64,
+            color: Colors.grey.shade300,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Belum ada jadwal untuk bulan ini',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    double screenWidth,
+    double screenHeight,
+    double padding,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: padding,
+        vertical: screenHeight * 0.02,
+      ),
+      color: Colors.white,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                size: screenWidth * 0.045,
+                color: Colors.black87,
+              ),
             ),
           ),
+          const Spacer(),
+          Text(
+            "Jadwal Shift",
+            style: TextStyle(
+              fontSize: screenWidth * 0.048,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const Spacer(),
+          SizedBox(width: screenWidth * 0.1),
+        ],
+      ),
+    );
+  }
 
-          // Content
+  Widget _buildMonthNavigation(double screenWidth) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          GestureDetector(
+            onTap: _canGoPrevious ? _previousMonth : null,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _canGoPrevious
+                    ? AppColors.primary.withOpacity(0.1)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.chevron_left,
+                color: _canGoPrevious
+                    ? AppColors.primary
+                    : Colors.grey.shade400,
+                size: 28,
+              ),
+            ),
+          ),
           Expanded(
-            child: Consumer<JadwalProvider>(
-              builder: (context, provider, child) {
-                if (provider.isLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
-                      ),
-                    ),
-                  );
-                }
-
-                if (provider.errorMessage != null) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 48,
-                            color: AppColors.error.withOpacity(0.5),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            provider.errorMessage!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _loadJadwal,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Coba Lagi'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                final jadwals = provider.jadwalBulan?.jadwals ?? [];
-
-                if (jadwals.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 48,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Belum ada jadwal untuk bulan ini',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () => provider.refreshJadwalBulan(_selectedBulan!),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: jadwals.length,
-                    itemBuilder: (context, index) {
-                      final jadwal = jadwals[index];
-                      return _buildJadwalCard(jadwal);
-                    },
-                  ),
-                );
-              },
+            child: Text(
+              _monthDisplay,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: _canGoNext ? _nextMonth : null,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _canGoNext
+                    ? AppColors.primary.withOpacity(0.1)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.chevron_right,
+                color: _canGoNext ? AppColors.primary : Colors.grey.shade400,
+                size: 28,
+              ),
             ),
           ),
         ],
@@ -394,10 +617,10 @@ class _JadwalPageState extends State<JadwalPage> {
     return GestureDetector(
       onTap: jadwal.isDitukar ? () => _showTukarShiftInfo(jadwal) : null,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: isToday
               ? Border.all(color: AppColors.primary, width: 2)
               : jadwal.isDitukar
@@ -409,22 +632,26 @@ class _JadwalPageState extends State<JadwalPage> {
                   ? AppColors.primary.withOpacity(0.15)
                   : jadwal.isDitukar
                   ? Colors.orange.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.05),
-              blurRadius: 6,
+                  : Colors.black.withOpacity(0.04),
+              blurRadius: 10,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              // Left side - Date with star indicator
+              // Date Box with Star
               Stack(
+                clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 56,
-                    padding: const EdgeInsets.all(10),
+                    width: 60,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 8,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: jadwal.isLibur
@@ -437,45 +664,66 @@ class _JadwalPageState extends State<JadwalPage> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              (jadwal.isLibur
+                                      ? Colors.green
+                                      : jadwal.isWeekend
+                                      ? Colors.red
+                                      : jadwal.isDitukar
+                                      ? Colors.orange
+                                      : AppColors.primary)
+                                  .withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: Column(
                       children: [
                         Text(
                           jadwal.tanggalFormat,
                           style: const TextStyle(
-                            fontSize: 22,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             height: 1,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           jadwal.bulanFormat.toUpperCase(),
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // ⭐ STAR INDICATOR for tukar shift
+                  // Star Badge
                   if (jadwal.isDitukar)
                     Positioned(
-                      top: -2,
-                      right: -2,
+                      top: -4,
+                      right: -4,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
-                          color: Colors.amber.shade400,
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.amber.shade300,
+                              Colors.amber.shade500,
+                            ],
+                          ),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.amber.withOpacity(0.5),
-                              blurRadius: 4,
+                              blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
                           ],
@@ -483,16 +731,16 @@ class _JadwalPageState extends State<JadwalPage> {
                         child: const Icon(
                           Icons.star,
                           color: Colors.white,
-                          size: 16,
+                          size: 14,
                         ),
                       ),
                     ),
                 ],
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
 
-              // Right side - Details
+              // Details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,28 +750,39 @@ class _JadwalPageState extends State<JadwalPage> {
                         Text(
                           jadwal.hari,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: Colors.grey.shade800,
+                            letterSpacing: 0.2,
                           ),
                         ),
                         if (isToday) ...[
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                              horizontal: 8,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(10),
+                              gradient: const LinearGradient(
+                                colors: [AppColors.primary, Colors.deepOrange],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: const Text(
                               'Hari Ini',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 9,
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ),
@@ -531,34 +790,40 @@ class _JadwalPageState extends State<JadwalPage> {
                       ],
                     ),
 
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
 
                     if (jadwal.isLibur)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
+                          horizontal: 12,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.green.shade200),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.green.shade50,
+                              Colors.green.shade100,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade300),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.wb_sunny,
-                              size: 14,
+                              size: 16,
                               color: Colors.green.shade700,
                             ),
-                            const SizedBox(width: 5),
+                            const SizedBox(width: 6),
                             Text(
-                              'Libur',
+                              'Hari Libur',
                               style: TextStyle(
                                 color: Colors.green.shade700,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 12,
+                                fontSize: 13,
+                                letterSpacing: 0.2,
                               ),
                             ),
                           ],
@@ -569,39 +834,43 @@ class _JadwalPageState extends State<JadwalPage> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
+                              horizontal: 10,
+                              vertical: 4,
                             ),
                             decoration: BoxDecoration(
                               color: jadwal.isDitukar
                                   ? Colors.orange.withOpacity(0.15)
                                   : AppColors.primary.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(5),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               'Shift ${jadwal.shiftCode}',
                               style: TextStyle(
                                 color: jadwal.isDitukar
                                     ? Colors.orange.shade700
-                                    : AppColors.primary.withOpacity(0.9),
+                                    : AppColors.primary,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 11,
+                                fontSize: 12,
                               ),
                             ),
                           ),
-                          // Badge "Ditukar" jika shift ditukar
                           if (jadwal.isDitukar) ...[
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
+                                horizontal: 8,
+                                vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.amber.shade100,
-                                borderRadius: BorderRadius.circular(10),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.amber.shade100,
+                                    Colors.amber.shade200,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: Colors.amber.shade300,
+                                  color: Colors.amber.shade400,
                                 ),
                               ),
                               child: Row(
@@ -612,12 +881,12 @@ class _JadwalPageState extends State<JadwalPage> {
                                     size: 12,
                                     color: Colors.amber.shade700,
                                   ),
-                                  const SizedBox(width: 3),
+                                  const SizedBox(width: 4),
                                   Text(
                                     'Ditukar',
                                     style: TextStyle(
                                       color: Colors.amber.shade700,
-                                      fontSize: 9,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -627,36 +896,50 @@ class _JadwalPageState extends State<JadwalPage> {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Icon(
                             Icons.access_time,
-                            size: 14,
+                            size: 15,
                             color: Colors.grey.shade600,
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 6),
                           Text(
                             '${jadwal.waktuMulai ?? '-'} - ${jadwal.waktuSelesai ?? '-'}',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               color: Colors.grey.shade700,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                      // Info dengan siapa ditukar (jika ada)
                       if (jadwal.isDitukar &&
                           jadwal.tukarShiftInfo != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'dengan ${jadwal.tukarShiftInfo!.dengan}',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.amber.shade700,
-                            fontStyle: FontStyle.italic,
-                          ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.person_outline,
+                              size: 14,
+                              color: Colors.amber.shade700,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'dengan ${jadwal.tukarShiftInfo!.dengan}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.amber.shade700,
+                                  fontStyle: FontStyle.italic,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ],
@@ -664,12 +947,20 @@ class _JadwalPageState extends State<JadwalPage> {
                 ),
               ),
 
-              // Tap indicator for tukar shift
+              // Info Icon
               if (jadwal.isDitukar)
-                Icon(
-                  Icons.info_outline,
-                  size: 20,
-                  color: Colors.amber.shade700,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: Colors.amber.shade700,
+                  ),
                 ),
             ],
           ),

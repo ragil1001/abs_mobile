@@ -2,13 +2,14 @@ import 'package:flutter/foundation.dart';
 import '../data/models/karyawan_model.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/services/api_service.dart';
-import '../data/services/storage_service.dart'; // Tambahkan import ini
+import '../data/services/storage_service.dart';
+import '../data/services/firebase_messaging_service.dart';
 
 enum AuthState { initial, loading, authenticated, unauthenticated, error }
 
 class AuthProvider with ChangeNotifier {
   final AuthRepository _authRepository = AuthRepository();
-  final StorageService _storageService = StorageService(); // Tambahkan ini
+  final StorageService _storageService = StorageService();
 
   AuthState _state = AuthState.initial;
   Karyawan? _currentUser;
@@ -28,7 +29,7 @@ class AuthProvider with ChangeNotifier {
   /// Initialize auth state
   Future<void> initAuth() async {
     try {
-      // TAMBAHKAN: Load token dari storage
+      // Load token dari storage
       _token = await _storageService.getToken();
 
       final isLoggedIn = await _authRepository.isLoggedIn();
@@ -45,17 +46,17 @@ class AuthProvider with ChangeNotifier {
           // Token might be expired
           _state = AuthState.unauthenticated;
           _currentUser = null;
-          _token = null; // TAMBAHKAN: Clear token jika expired
+          _token = null;
         }
       } else {
         _state = AuthState.unauthenticated;
-        _token = null; // TAMBAHKAN: Clear token
+        _token = null;
       }
 
       notifyListeners();
     } catch (e) {
       _state = AuthState.unauthenticated;
-      _token = null; // TAMBAHKAN: Clear token on error
+      _token = null;
       notifyListeners();
     }
   }
@@ -74,7 +75,7 @@ class AuthProvider with ChangeNotifier {
       final authResponse = await _authRepository.login(username, password);
       _currentUser = authResponse.karyawan;
 
-      // TAMBAHKAN: Simpan token dari response
+      // Simpan token dari response
       _token = await _storageService.getToken();
 
       // Save remember me preference
@@ -86,6 +87,9 @@ class AuthProvider with ChangeNotifier {
 
       _state = AuthState.authenticated;
       notifyListeners();
+
+      // Send FCM token ke backend setelah login berhasil
+      await _sendFcmTokenToBackend();
 
       return true;
     } on ApiException catch (e) {
@@ -101,14 +105,47 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// Send FCM token to backend
+  Future<void> _sendFcmTokenToBackend() async {
+    try {
+      final fcmToken = await FirebaseMessagingService.getToken();
+      if (fcmToken != null && _token != null) {
+        await _authRepository.storeFcmToken(fcmToken);
+        print('FCM token sent to backend successfully');
+      }
+    } catch (e) {
+      print('Error sending FCM token to backend: $e');
+      // Don't throw error, login should still succeed
+    }
+  }
+
   /// Logout - Optimized for instant UI feedback
   Future<void> logout() async {
     try {
+      // Get FCM token sebelum logout
+      final fcmToken = await FirebaseMessagingService.getToken();
+
       // Clear local state immediately for instant UI update
       _currentUser = null;
-      _token = null; // TAMBAHKAN: Clear token
+      _token = null;
       _state = AuthState.unauthenticated;
       notifyListeners();
+
+      // Delete FCM token dari backend
+      if (fcmToken != null) {
+        try {
+          await _authRepository.deleteFcmToken(fcmToken);
+        } catch (e) {
+          print('Error deleting FCM token from backend: $e');
+        }
+      }
+
+      // Delete local FCM token
+      try {
+        await FirebaseMessagingService.deleteToken();
+      } catch (e) {
+        print('Error deleting local FCM token: $e');
+      }
 
       // Then call API in background (won't block UI)
       await _authRepository.logout();
@@ -127,7 +164,7 @@ class AuthProvider with ChangeNotifier {
       // If refresh fails, might need to re-login
       _state = AuthState.unauthenticated;
       _currentUser = null;
-      _token = null; // TAMBAHKAN: Clear token
+      _token = null;
       notifyListeners();
     }
   }
@@ -149,7 +186,7 @@ class AuthProvider with ChangeNotifier {
 
       // After password change, user needs to login again
       _currentUser = null;
-      _token = null; // TAMBAHKAN: Clear token
+      _token = null;
       _state = AuthState.unauthenticated;
       notifyListeners();
 

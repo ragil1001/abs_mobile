@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/presensi_provider.dart'; // TAMBAH INI
 import '../data/services/api_service.dart';
 import '../core/config/app_config.dart';
 import 'dart:convert';
@@ -344,8 +345,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context); // Close dialog
-                      Navigator.pop(context); // Back to absensi page
-                      Navigator.pop(context); // Back to home
+                      _handleSuccessAndReturn();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
@@ -396,6 +396,40 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
         );
       }
     }
+  }
+
+  // TAMBAH METHOD INI: Handle success dan trigger refresh
+  Future<void> _handleSuccessAndReturn() async {
+    if (!mounted) return;
+
+    // STEP 1: Trigger refresh di PresensiProvider
+    // Ini akan mem-fetch data terbaru dari backend
+    try {
+      final presensiProvider = Provider.of<PresensiProvider>(
+        context,
+        listen: false,
+      );
+      await presensiProvider.loadPresensiData();
+    } catch (e) {
+      debugPrint('Error refreshing presensi data: $e');
+    }
+
+    if (!mounted) return;
+
+    // STEP 2: Pop hingga kembali ke HomePage
+    // Navigator.pop() dipanggil 3 kali:
+    // 1. Close SelfiePage
+    // 2. Close AbsensiPage
+    // 3. Kembali ke HomePage (dalam MainApp dengan PageView)
+
+    // Cara yang lebih aman: gunakan named route atau popUntil
+    Navigator.of(context).popUntil((route) {
+      // Pop sampai ke route MainApp (HomePage)
+      // Cek apakah route name adalah home atau tidak ada name (root)
+      return route.settings.name == null ||
+          route.settings.name == '/home' ||
+          route.isFirst;
+    });
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -517,9 +551,6 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
           },
         ),
 
-        // Overlay dengan guides
-        CustomPaint(painter: FaceGuidePainter()),
-
         // Top bar
         SafeArea(
           child: Padding(
@@ -560,19 +591,6 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                     ),
                     const SizedBox(width: 48),
                   ],
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Posisikan wajah Anda di dalam frame',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
                 ),
               ],
             ),
@@ -677,88 +695,4 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       ],
     );
   }
-}
-
-// Custom painter untuk guide wajah
-class FaceGuidePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    final centerX = size.width / 2;
-    final centerY = size.height / 2.5;
-    final ovalWidth = size.width * 0.6;
-    final ovalHeight = size.height * 0.4;
-
-    // Draw oval guide
-    final rect = Rect.fromCenter(
-      center: Offset(centerX, centerY),
-      width: ovalWidth,
-      height: ovalHeight,
-    );
-
-    canvas.drawOval(rect, paint);
-
-    // Draw corner indicators
-    final cornerLength = 30.0;
-    final cornerPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-
-    // Top left
-    canvas.drawLine(
-      Offset(rect.left, rect.top + cornerLength),
-      Offset(rect.left, rect.top),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(rect.left, rect.top),
-      Offset(rect.left + cornerLength, rect.top),
-      cornerPaint,
-    );
-
-    // Top right
-    canvas.drawLine(
-      Offset(rect.right - cornerLength, rect.top),
-      Offset(rect.right, rect.top),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(rect.right, rect.top),
-      Offset(rect.right, rect.top + cornerLength),
-      cornerPaint,
-    );
-
-    // Bottom left
-    canvas.drawLine(
-      Offset(rect.left, rect.bottom - cornerLength),
-      Offset(rect.left, rect.bottom),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(rect.left, rect.bottom),
-      Offset(rect.left + cornerLength, rect.bottom),
-      cornerPaint,
-    );
-
-    // Bottom right
-    canvas.drawLine(
-      Offset(rect.right - cornerLength, rect.bottom),
-      Offset(rect.right, rect.bottom),
-      cornerPaint,
-    );
-    canvas.drawLine(
-      Offset(rect.right, rect.bottom),
-      Offset(rect.right, rect.bottom - cornerLength),
-      cornerPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/tukar_shift_provider.dart';
 import '../../data/models/tukar_shift_model.dart';
+import '../../components/custom_snackbar.dart';
 import 'tukar_shift_select_karyawan_page.dart';
 
 class TukarShiftRequestPage extends StatefulWidget {
@@ -14,9 +15,9 @@ class TukarShiftRequestPage extends StatefulWidget {
 }
 
 class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
-  DateTimeRange? _selectedDateRange;
-  int? _selectedShiftId; // UBAH: Gunakan ID bukan object
-  List<JadwalShift> _shifts = []; // TAMBAH: Simpan list shifts di state
+  DateTime? _selectedDate;
+  int? _selectedShiftId;
+  List<JadwalShift> _shifts = [];
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -36,8 +37,8 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
 
     final provider = Provider.of<TukarShiftProvider>(context, listen: false);
     await provider.loadAvailableShifts(
-      startDate: _selectedDateRange?.start.toString().split(' ')[0],
-      endDate: _selectedDateRange?.end.toString().split(' ')[0],
+      startDate: _selectedDate?.toString().split(' ')[0],
+      endDate: _selectedDate?.toString().split(' ')[0],
     );
 
     if (mounted) {
@@ -49,12 +50,12 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
     }
   }
 
-  Future<void> _selectDateRange() async {
-    final range = await showDateRangePicker(
+  Future<void> _selectDate() async {
+    final date = await showDatePicker(
       context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 90)),
-      initialDateRange: _selectedDateRange,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -65,10 +66,10 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
       },
     );
 
-    if (range != null) {
+    if (date != null) {
       setState(() {
-        _selectedDateRange = range;
-        _selectedShiftId = null; // Reset selection saat filter berubah
+        _selectedDate = date;
+        _selectedShiftId = null;
       });
       _loadShifts();
     }
@@ -77,7 +78,7 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
   void _selectShift(int shiftId) {
     setState(() {
       if (_selectedShiftId == shiftId) {
-        _selectedShiftId = null; // Unselect jika diklik lagi
+        _selectedShiftId = null;
       } else {
         _selectedShiftId = shiftId;
       }
@@ -86,16 +87,13 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
 
   void _proceedToSelectKaryawan() {
     if (_selectedShiftId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pilih shift yang ingin ditukar terlebih dahulu'),
-          backgroundColor: AppColors.error,
-        ),
+      CustomSnackbar.showWarning(
+        context,
+        'Pilih shift yang ingin ditukar terlebih dahulu',
       );
       return;
     }
 
-    // Cari shift yang dipilih dari list
     final selectedShift = _shifts.firstWhere(
       (shift) => shift.id == _selectedShiftId,
     );
@@ -111,193 +109,255 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.06;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text('Pilih Shift Anda'),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          // Info banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            color: Colors.blue.shade50,
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Pilih shift Anda yang ingin ditukar dengan shift karyawan lain',
-                    style: TextStyle(color: Colors.blue.shade900, fontSize: 13),
+      backgroundColor: const Color.fromARGB(255, 254, 253, 253),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(context, screenWidth, screenHeight, padding),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              color: Colors.blue.shade50,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.blue.shade700,
+                    size: 20,
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Filter button
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _selectDateRange,
-                    icon: const Icon(Icons.date_range),
-                    label: Text(
-                      _selectedDateRange == null
-                          ? 'Filter Tanggal'
-                          : '${DateFormat('dd MMM').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM').format(_selectedDateRange!.end)}',
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                    ),
-                  ),
-                ),
-                if (_selectedDateRange != null) ...[
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      setState(() {
-                        _selectedDateRange = null;
-                        _selectedShiftId = null;
-                      });
-                      _loadShifts();
-                    },
-                    color: AppColors.error,
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // List
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Pilih shift Anda yang ingin ditukar dengan shift karyawan lain',
+                      style: TextStyle(
+                        color: Colors.blue.shade900,
+                        fontSize: 13,
                       ),
                     ),
-                  )
-                : _errorMessage != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _selectDate,
+                      icon: const Icon(Icons.calendar_today, size: 18),
+                      label: Text(
+                        _selectedDate == null
+                            ? 'Filter Tanggal'
+                            : DateFormat(
+                                'dd MMMM yyyy',
+                                'id_ID',
+                              ).format(_selectedDate!),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_selectedDate != null) ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = null;
+                          _selectedShiftId = null;
+                        });
+                        _loadShifts();
+                      },
+                      color: AppColors.error,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.primary,
+                        ),
+                      ),
+                    )
+                  : _errorMessage != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: AppColors.error.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadShifts,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('Coba Lagi'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _shifts.isEmpty
+                  ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.error_outline,
-                            size: 48,
-                            color: AppColors.error.withOpacity(0.5),
+                            Icons.calendar_today_outlined,
+                            size: 64,
+                            color: Colors.grey.shade300,
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Text(
-                            _errorMessage!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.black54),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _loadShifts,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
+                            'Tidak ada shift yang tersedia',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 16,
                             ),
-                            child: const Text('Coba Lagi'),
                           ),
+                          if (_selectedDate != null) ...[
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedDate = null;
+                                  _selectedShiftId = null;
+                                });
+                                _loadShifts();
+                              },
+                              child: const Text('Hapus Filter'),
+                            ),
+                          ],
                         ],
                       ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _shifts.length,
+                      itemBuilder: (context, index) {
+                        final shift = _shifts[index];
+                        final isSelected = _selectedShiftId == shift.id;
+                        return _buildShiftCard(shift, isSelected);
+                      },
                     ),
-                  )
-                : _shifts.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 64,
-                          color: Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Tidak ada shift yang tersedia',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 16,
-                          ),
-                        ),
-                        if (_selectedDateRange != null) ...[
-                          const SizedBox(height: 8),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _selectedDateRange = null;
-                                _selectedShiftId = null;
-                              });
-                              _loadShifts();
-                            },
-                            child: const Text('Hapus Filter'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: _shifts.length,
-                    itemBuilder: (context, index) {
-                      final shift = _shifts[index];
-                      final isSelected = _selectedShiftId == shift.id;
-                      return _buildShiftCard(shift, isSelected);
-                    },
-                  ),
-          ),
-
-          // Bottom action button
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
             ),
-            child: SafeArea(
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _proceedToSelectKaryawan,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
                   ),
-                  child: const Text(
-                    'Lanjut Pilih Karyawan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ],
+              ),
+              child: SafeArea(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _proceedToSelectKaryawan,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Lanjut Pilih Karyawan',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    double screenWidth,
+    double screenHeight,
+    double padding,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: padding,
+        vertical: screenHeight * 0.02,
+      ),
+      color: Colors.white,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                size: screenWidth * 0.045,
+                color: Colors.black87,
+              ),
+            ),
           ),
+          const Spacer(),
+          Text(
+            "Pilih Shift Anda",
+            style: TextStyle(
+              fontSize: screenWidth * 0.048,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const Spacer(),
+          SizedBox(width: screenWidth * 0.1),
         ],
       ),
     );
@@ -307,10 +367,10 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
     return GestureDetector(
       onTap: () => _selectShift(shift.id),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: isSelected
               ? Border.all(color: AppColors.primary, width: 2)
               : null,
@@ -318,20 +378,22 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
             BoxShadow(
               color: isSelected
                   ? AppColors.primary.withOpacity(0.15)
-                  : Colors.black.withOpacity(0.05),
-              blurRadius: 6,
+                  : Colors.black.withOpacity(0.04),
+              blurRadius: 10,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              // Date box
               Container(
-                width: 56,
-                padding: const EdgeInsets.all(10),
+                width: 60,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 8,
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isSelected
@@ -340,20 +402,28 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isSelected ? AppColors.primary : Colors.blue)
+                          .withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
                     Text(
                       '${shift.tanggal.day}',
                       style: const TextStyle(
-                        fontSize: 22,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         height: 1,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       DateFormat(
                         'MMM',
@@ -363,15 +433,13 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(width: 12),
-
-              // Shift info
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,43 +447,44 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                     Text(
                       shift.hari,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey.shade800,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 10,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(5),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         'Shift ${shift.shiftCode}',
-                        style: TextStyle(
-                          color: AppColors.primary.withOpacity(0.9),
+                        style: const TextStyle(
+                          color: AppColors.primary,
                           fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                          fontSize: 12,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Icon(
                           Icons.access_time,
-                          size: 14,
+                          size: 15,
                           color: Colors.grey.shade600,
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 6),
                         Text(
                           '${shift.waktuMulai ?? '-'} - ${shift.waktuSelesai ?? '-'}',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             color: Colors.grey.shade700,
                             fontWeight: FontWeight.w500,
                           ),
@@ -425,11 +494,9 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                   ],
                 ),
               ),
-
-              // Selection indicator
               if (isSelected)
                 Container(
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(6),
                   decoration: const BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
@@ -438,8 +505,8 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                 )
               else
                 Container(
-                  width: 24,
-                  height: 24,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.grey.shade400, width: 2),

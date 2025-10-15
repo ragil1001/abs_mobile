@@ -3,12 +3,14 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../providers/presensi_provider.dart';
+import '../providers/notification_provider.dart'; // ✅ Add this
 import '../components/shimmer_loading.dart';
 import 'profile_page.dart';
 import 'pengajuan_izin_page.dart';
 import 'jadwal_page.dart';
 import 'tukar_shift/tukar_shift_page.dart';
 import 'dart:async';
+import '../core/constants/app_routes.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,7 +20,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _notificationCount = 3;
   Timer? _dateTimer;
   String _currentDate = '';
   final GlobalKey _whiteCardKey = GlobalKey();
@@ -43,7 +44,17 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PresensiProvider>().loadPresensiData();
       _measureWhiteCard();
+      // ✅ Load notification count
+      _loadNotificationCount();
     });
+  }
+
+  Future<void> _loadNotificationCount() async {
+    try {
+      await context.read<NotificationProvider>().loadUnreadCount();
+    } catch (e) {
+      print('Error loading notification count: $e');
+    }
   }
 
   void _measureWhiteCard() {
@@ -86,11 +97,13 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Consumer2<AuthProvider, PresensiProvider>(
-          builder: (context, authProvider, presensiProvider, child) {
+        child: Consumer3<AuthProvider, PresensiProvider, NotificationProvider>(
+          builder: (context, authProvider, presensiProvider, notificationProvider, child) {
             final karyawan = authProvider.currentUser;
             final userName = karyawan?.nama.split(' ').first ?? 'User';
             final presensiData = presensiProvider.presensiData;
+            final unreadCount =
+                notificationProvider.unreadCount; // ✅ Get real count
 
             // Trigger measurement after data changes
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -98,7 +111,10 @@ class _HomePageState extends State<HomePage> {
             });
 
             return RefreshIndicator(
-              onRefresh: () => presensiProvider.refreshPresensiData(),
+              onRefresh: () async {
+                await presensiProvider.refreshPresensiData();
+                await _loadNotificationCount(); // ✅ Refresh notification count
+              },
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: presensiProvider.isLoading
@@ -167,8 +183,13 @@ class _HomePageState extends State<HomePage> {
                                   children: [
                                     GestureDetector(
                                       onTap: () {
-                                        setState(() {
-                                          _notificationCount = 0;
+                                        // Navigate ke notification page
+                                        Navigator.pushNamed(
+                                          context,
+                                          AppRoutes.notifications,
+                                        ).then((_) {
+                                          // ✅ Refresh notification count setelah kembali
+                                          _loadNotificationCount();
                                         });
                                       },
                                       child: Container(
@@ -194,7 +215,8 @@ class _HomePageState extends State<HomePage> {
                                         ),
                                       ),
                                     ),
-                                    if (_notificationCount > 0)
+                                    // ✅ Real-time badge from NotificationProvider
+                                    if (unreadCount > 0)
                                       Positioned(
                                         right: 0,
                                         top: 0,
@@ -213,7 +235,9 @@ class _HomePageState extends State<HomePage> {
                                                 : 18,
                                           ),
                                           child: Text(
-                                            '$_notificationCount',
+                                            unreadCount > 99
+                                                ? '99+'
+                                                : '$unreadCount',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: isVerySmallScreen
@@ -369,8 +393,7 @@ class _HomePageState extends State<HomePage> {
                                 ),
                                 SizedBox(height: screenHeight * 0.017),
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.start, // rata kiri
+                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
                                     _buildMenuCard(
                                       icon: Icons.assignment_outlined,
@@ -390,9 +413,7 @@ class _HomePageState extends State<HomePage> {
                                         );
                                       },
                                     ),
-                                    SizedBox(
-                                      width: screenWidth * 0.04,
-                                    ), // jarak antar card
+                                    SizedBox(width: screenWidth * 0.04),
                                     _buildMenuCard(
                                       icon: Icons.swap_horiz,
                                       label: 'Tukar Shift',
@@ -411,9 +432,7 @@ class _HomePageState extends State<HomePage> {
                                         );
                                       },
                                     ),
-                                    SizedBox(
-                                      width: screenWidth * 0.04,
-                                    ), // jarak antar card
+                                    SizedBox(width: screenWidth * 0.04),
                                     _buildMenuCard(
                                       icon: Icons.calendar_today,
                                       label: 'Jadwal',
@@ -437,7 +456,7 @@ class _HomePageState extends State<HomePage> {
                               ],
                             ),
                           ),
-                          SizedBox(height: 30),
+                          const SizedBox(height: 30),
                         ],
                       ),
               ),
@@ -448,155 +467,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildShimmerLayout(
-    double screenWidth,
-    double screenHeight,
-    double padding,
-    double avatarSize,
-    double notifSize,
-    double companyIconSize,
-    double titleFontSize,
-    double subtitleFontSize,
-    bool isVerySmallScreen,
-    bool isSmallScreen,
-  ) {
-    final cardHeight = (isVerySmallScreen || isSmallScreen)
-        ? screenHeight * 0.10
-        : screenHeight * 0.11;
-    final cardWidth = (isVerySmallScreen || isSmallScreen)
-        ? screenWidth * 0.22
-        : screenWidth * 0.24;
-
-    return ShimmerLoading(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Section (Avatar and Notification)
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              padding,
-              screenHeight * 0.02,
-              padding,
-              0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                ShimmerBox(
-                  width: avatarSize,
-                  height: avatarSize,
-                  borderRadius: avatarSize / 2,
-                ),
-                ShimmerBox(
-                  width: notifSize,
-                  height: notifSize,
-                  borderRadius: notifSize / 2,
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: screenHeight * 0.02),
-
-          // Greeting and Date Section
-          Container(
-            color: const Color.fromARGB(255, 250, 251, 253),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                padding,
-                screenHeight * 0.02,
-                padding,
-                0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ShimmerBox(
-                              width: screenWidth * 0.4,
-                              height: titleFontSize,
-                              borderRadius: 4,
-                            ),
-                            SizedBox(height: screenHeight * 0.003),
-                            ShimmerBox(
-                              width: screenWidth * 0.3,
-                              height: subtitleFontSize,
-                              borderRadius: 4,
-                            ),
-                          ],
-                        ),
-                      ),
-                      ShimmerBox(
-                        width: companyIconSize,
-                        height: companyIconSize,
-                        borderRadius: companyIconSize / 2,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: screenHeight * 0.022),
-
-                  // Data Card Section
-                  ShimmerBox(
-                    width: double.infinity,
-                    height: _whiteCardHeight > 0
-                        ? _whiteCardHeight + 36.0 + screenHeight * 0.01
-                        : screenHeight * 0.35,
-                    borderRadius: 16,
-                  ),
-                  SizedBox(height: screenHeight * 0.028),
-                ],
-              ),
-            ),
-          ),
-
-          // Menu Section
-          Padding(
-            padding: EdgeInsets.all(padding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ShimmerBox(
-                  width: screenWidth * 0.3,
-                  height: (screenWidth * 0.042).clamp(14.0, 18.0),
-                  borderRadius: 4,
-                ),
-                SizedBox(height: screenHeight * 0.017),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    ShimmerBox(
-                      width: cardWidth,
-                      height: cardHeight,
-                      borderRadius: 15,
-                    ),
-                    SizedBox(width: screenWidth * 0.04),
-                    ShimmerBox(
-                      width: cardWidth,
-                      height: cardHeight,
-                      borderRadius: 15,
-                    ),
-                    SizedBox(width: screenWidth * 0.04),
-                    ShimmerBox(
-                      width: cardWidth,
-                      height: cardHeight,
-                      borderRadius: 15,
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenHeight * 0.02),
-              ],
-            ),
-          ),
-          SizedBox(height: 30),
-        ],
-      ),
-    );
-  }
+  // ... rest of the widget methods remain the same ...
+  // (I'll include the key ones below)
 
   Widget _buildErrorCard(
     double screenWidth,
@@ -604,7 +476,6 @@ class _HomePageState extends State<HomePage> {
     String error,
   ) {
     final isVerySmallScreen = screenWidth < 340;
-    final headerHeight = isVerySmallScreen ? 32.0 : 36.0;
     final topOffset = isVerySmallScreen
         ? screenHeight * 0.04
         : screenHeight * 0.045;
@@ -694,7 +565,6 @@ class _HomePageState extends State<HomePage> {
     final presensi = presensiData?.presensiHariIni;
 
     final isVerySmallScreen = screenWidth < 340;
-    final headerHeight = isVerySmallScreen ? 32.0 : 36.0;
     final topOffset = isVerySmallScreen
         ? screenHeight * 0.005
         : screenHeight * 0.01;
@@ -865,7 +735,7 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
-                                    '${jadwal.waktuMulai ?? '-'} - ${jadwal.waktuSelesai ?? '-'}',
+                                    '${_formatTimeWithoutSeconds(jadwal.waktuMulai)} - ${_formatTimeWithoutSeconds(jadwal.waktuSelesai)}',
                                     style: TextStyle(
                                       fontSize: bodyFontSize,
                                       fontWeight: FontWeight.bold,
@@ -928,10 +798,14 @@ class _HomePageState extends State<HomePage> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            // CRITICAL: Jika alpa, tampilkan strip
                                             presensi?.isAlpa == true
                                                 ? '-'
-                                                : (presensi?.waktuMasuk ?? '-'),
+                                                : (presensi?.statusMasuk ==
+                                                          'izin'
+                                                      ? 'Izin'
+                                                      : _formatTimeWithoutSeconds(
+                                                          presensi?.waktuMasuk,
+                                                        )),
                                             style: TextStyle(
                                               fontSize: (screenWidth * 0.042)
                                                   .clamp(14.0, 18.0),
@@ -990,11 +864,14 @@ class _HomePageState extends State<HomePage> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            // CRITICAL: Jika alpa, tampilkan strip
                                             presensi?.isAlpa == true
                                                 ? '-'
-                                                : (presensi?.waktuPulang ??
-                                                      '-'),
+                                                : (presensi?.statusMasuk ==
+                                                          'izin'
+                                                      ? 'Izin'
+                                                      : _formatTimeWithoutSeconds(
+                                                          presensi?.waktuPulang,
+                                                        )),
                                             style: TextStyle(
                                               fontSize: (screenWidth * 0.042)
                                                   .clamp(14.0, 18.0),
@@ -1077,8 +954,6 @@ class _HomePageState extends State<HomePage> {
     final cardHeight = isSmall ? screenHeight * 0.10 : screenHeight * 0.11;
     final cardWidth = isSmall ? screenWidth * 0.22 : screenWidth * 0.24;
     final labelSize = (screenWidth * 0.032).clamp(11.0, 14.0);
-
-    // tinggi area ikon (misal 40% tinggi card)
     final iconBarHeight = cardHeight * 0.65;
 
     return GestureDetector(
@@ -1101,10 +976,9 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // 🔹 Bagian atas: blok warna dengan ikon di tengah
             Container(
               height: iconBarHeight,
-              width: double.infinity, // sepanjang card
+              width: double.infinity,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.15),
                 borderRadius: const BorderRadius.vertical(
@@ -1119,11 +993,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-
-            // 🔹 Spacer kecil
             const SizedBox(height: 6),
-
-            // 🔹 Label di bawah
             Expanded(
               child: Center(
                 child: Text(
@@ -1143,5 +1013,170 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildShimmerLayout(
+    double screenWidth,
+    double screenHeight,
+    double padding,
+    double avatarSize,
+    double notifSize,
+    double companyIconSize,
+    double titleFontSize,
+    double subtitleFontSize,
+    bool isVerySmallScreen,
+    bool isSmallScreen,
+  ) {
+    final cardHeight = (isVerySmallScreen || isSmallScreen)
+        ? screenHeight * 0.10
+        : screenHeight * 0.11;
+    final cardWidth = (isVerySmallScreen || isSmallScreen)
+        ? screenWidth * 0.22
+        : screenWidth * 0.24;
+
+    return ShimmerLoading(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              padding,
+              screenHeight * 0.02,
+              padding,
+              0,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ShimmerBox(
+                  width: avatarSize,
+                  height: avatarSize,
+                  borderRadius: avatarSize / 2,
+                ),
+                ShimmerBox(
+                  width: notifSize,
+                  height: notifSize,
+                  borderRadius: notifSize / 2,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.02),
+          Container(
+            color: const Color.fromARGB(255, 250, 251, 253),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                padding,
+                screenHeight * 0.02,
+                padding,
+                0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShimmerBox(
+                              width: screenWidth * 0.4,
+                              height: titleFontSize,
+                              borderRadius: 4,
+                            ),
+                            SizedBox(height: screenHeight * 0.003),
+                            ShimmerBox(
+                              width: screenWidth * 0.3,
+                              height: subtitleFontSize,
+                              borderRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                      ShimmerBox(
+                        width: companyIconSize,
+                        height: companyIconSize,
+                        borderRadius: companyIconSize / 2,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: screenHeight * 0.022),
+                  ShimmerBox(
+                    width: double.infinity,
+                    height: _whiteCardHeight > 0
+                        ? _whiteCardHeight + 36.0 + screenHeight * 0.01
+                        : screenHeight * 0.35,
+                    borderRadius: 16,
+                  ),
+                  SizedBox(height: screenHeight * 0.028),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(padding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ShimmerBox(
+                  width: screenWidth * 0.3,
+                  height: (screenWidth * 0.042).clamp(14.0, 18.0),
+                  borderRadius: 4,
+                ),
+                SizedBox(height: screenHeight * 0.017),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    ShimmerBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                      borderRadius: 15,
+                    ),
+                    SizedBox(width: screenWidth * 0.04),
+                    ShimmerBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                      borderRadius: 15,
+                    ),
+                    SizedBox(width: screenWidth * 0.04),
+                    ShimmerBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                      borderRadius: 15,
+                    ),
+                  ],
+                ),
+                SizedBox(height: screenHeight * 0.02),
+              ],
+            ),
+          ),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatTimeWithoutSeconds(String? timeString) {
+  if (timeString == null || timeString.isEmpty || timeString == '-') {
+    return '-';
+  }
+
+  try {
+    // Jika format sudah HH:mm, return as is
+    if (timeString.length <= 5) {
+      return timeString;
+    }
+
+    // Jika format HH:mm:ss, ambil 5 karakter pertama (HH:mm)
+    if (timeString.length >= 8 && timeString.contains(':')) {
+      return timeString.substring(0, 5);
+    }
+
+    return timeString;
+  } catch (e) {
+    return timeString;
   }
 }

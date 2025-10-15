@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../providers/izin_provider.dart';
 import '../core/constants/app_colors.dart';
 import '../data/models/pengajuan_izin_model.dart';
+import '../components/custom_snackbar.dart';
 import 'detail_izin_page.dart';
 
 class DataIzinPage extends StatefulWidget {
@@ -17,6 +18,7 @@ class DataIzinPage extends StatefulWidget {
 class _DataIzinPageState extends State<DataIzinPage> {
   String _filter = "Semua";
   DateTimeRange? _customRange;
+  DateTime? _lastRefreshTime;
 
   @override
   void initState() {
@@ -26,13 +28,33 @@ class _DataIzinPageState extends State<DataIzinPage> {
     });
   }
 
+  bool get _shouldRefresh {
+    if (_lastRefreshTime == null) return true;
+    return DateTime.now().difference(_lastRefreshTime!).inSeconds > 30;
+  }
+
   Future<void> _loadData() async {
     if (!mounted) return;
+    _lastRefreshTime = DateTime.now();
+
     final izinProvider = Provider.of<IzinProvider>(context, listen: false);
     await izinProvider.loadPengajuan();
   }
 
-  /// Filter izin berdasarkan pilihan tanggal
+  // When navigating to detail, refresh on return
+  void _navigateToDetail(int izinId) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => DetailIzinPage(izinId: izinId)),
+    );
+
+    // Refresh after returning
+    if (mounted && _shouldRefresh) {
+      _lastRefreshTime = null;
+      _loadData();
+    }
+  }
+
   List<PengajuanIzin> _getFilteredIzin(List<PengajuanIzin> disetujuiList) {
     final now = DateTime.now();
 
@@ -71,7 +93,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
     await showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return Column(
@@ -79,9 +101,22 @@ class _DataIzinPageState extends State<DataIzinPage> {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              child: const Text(
-                'Filter Tanggal',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Filter Tanggal',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
             ),
             const Divider(height: 1),
@@ -92,7 +127,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
               ),
               title: const Text("Semua"),
               trailing: _filter == "Semua"
-                  ? const Icon(Icons.check, color: AppColors.primary)
+                  ? const Icon(Icons.check_circle, color: AppColors.primary)
                   : null,
               onTap: () {
                 setState(() {
@@ -109,7 +144,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
               ),
               title: const Text("Bulan Ini"),
               trailing: _filter == "Bulan Ini"
-                  ? const Icon(Icons.check, color: AppColors.primary)
+                  ? const Icon(Icons.check_circle, color: AppColors.primary)
                   : null,
               onTap: () {
                 setState(() {
@@ -126,7 +161,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
               ),
               title: const Text("Bulan Lalu"),
               trailing: _filter == "Bulan Lalu"
-                  ? const Icon(Icons.check, color: AppColors.primary)
+                  ? const Icon(Icons.check_circle, color: AppColors.primary)
                   : null,
               onTap: () {
                 setState(() {
@@ -140,7 +175,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
               leading: const Icon(Icons.date_range, color: AppColors.primary),
               title: const Text("Pilih Tanggal Sendiri"),
               trailing: _filter == "Custom"
-                  ? const Icon(Icons.check, color: AppColors.primary)
+                  ? const Icon(Icons.check_circle, color: AppColors.primary)
                   : null,
               onTap: () async {
                 Navigator.pop(context);
@@ -177,98 +212,78 @@ class _DataIzinPageState extends State<DataIzinPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.06;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Data Izin"),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Consumer<IzinProvider>(
-        builder: (context, izinProvider, child) {
-          if (izinProvider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
-            );
-          }
-
-          if (izinProvider.state == IzinState.error) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: const Color.fromARGB(255, 254, 253, 253),
+      body: SafeArea(
+        child: Consumer<IzinProvider>(
+          builder: (context, izinProvider, child) {
+            if (izinProvider.isLoading) {
+              return Column(
                 children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: AppColors.error.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    izinProvider.errorMessage ?? 'Terjadi kesalahan',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadData,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                  _buildHeader(context, screenWidth, screenHeight, padding),
+                  const Expanded(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.primary,
+                        ),
+                      ),
                     ),
-                    child: const Text('Coba Lagi'),
                   ),
                 ],
-              ),
-            );
-          }
+              );
+            }
 
-          // Get only disetujui list
-          final disetujuiList = izinProvider.disetujuiList;
-
-          // Apply date filter
-          final filteredList = _getFilteredIzin(disetujuiList);
-
-          if (filteredList.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+            if (izinProvider.state == IzinState.error) {
+              return Column(
                 children: [
-                  Icon(
-                    Icons.inbox_outlined,
-                    size: 64,
-                    color: Colors.grey.shade300,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Belum ada data izin yang disetujui',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-                  ),
-                  if (_filter != "Semua") ...[
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _filter = "Semua";
-                          _customRange = null;
-                        });
-                      },
-                      icon: const Icon(Icons.clear),
-                      label: const Text('Hapus Filter'),
+                  _buildHeader(context, screenWidth, screenHeight, padding),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: AppColors.error.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            izinProvider.errorMessage ?? 'Terjadi kesalahan',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadData,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Coba Lagi'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ],
-              ),
-            );
-          }
+              );
+            }
 
-          return RefreshIndicator(
-            onRefresh: _loadData,
-            child: Column(
+            final disetujuiList = izinProvider.disetujuiList;
+            final filteredList = _getFilteredIzin(disetujuiList);
+
+            return Column(
               children: [
-                // Filter info banner
+                _buildHeader(context, screenWidth, screenHeight, padding),
                 if (_filter != "Semua")
                   Container(
                     width: double.infinity,
@@ -313,27 +328,63 @@ class _DataIzinPageState extends State<DataIzinPage> {
                       ],
                     ),
                   ),
-
-                // List izin
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: filteredList.length,
-                    itemBuilder: (context, index) {
-                      final izin = filteredList[index];
-                      return _buildIzinCard(izin);
-                    },
-                  ),
+                  child: filteredList.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.inbox_outlined,
+                                size: 64,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Belum ada data izin yang disetujui',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              if (_filter != "Semua") ...[
+                                const SizedBox(height: 8),
+                                TextButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      _filter = "Semua";
+                                      _customRange = null;
+                                    });
+                                  },
+                                  icon: const Icon(Icons.clear),
+                                  label: const Text('Hapus Filter'),
+                                ),
+                              ],
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadData,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: filteredList.length,
+                            itemBuilder: (context, index) {
+                              final izin = filteredList[index];
+                              return _buildIzinCard(izin);
+                            },
+                          ),
+                        ),
                 ),
               ],
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showFilterDialog,
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        elevation: 4,
         label: const Text(
           "Filter Tanggal",
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -343,17 +394,64 @@ class _DataIzinPageState extends State<DataIzinPage> {
     );
   }
 
+  Widget _buildHeader(
+    BuildContext context,
+    double screenWidth,
+    double screenHeight,
+    double padding,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: padding,
+        vertical: screenHeight * 0.02,
+      ),
+      color: Colors.white,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                size: screenWidth * 0.045,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            "Data Izin",
+            style: TextStyle(
+              fontSize: screenWidth * 0.048,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const Spacer(),
+          SizedBox(width: screenWidth * 0.1),
+        ],
+      ),
+    );
+  }
+
   Widget _buildIzinCard(PengajuanIzin izin) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -364,18 +462,17 @@ class _DataIzinPageState extends State<DataIzinPage> {
             MaterialPageRoute(builder: (_) => DetailIzinPage(izinId: izin.id)),
           );
         },
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with status badge
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.success.withOpacity(0.1),
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
                 ),
               ),
               child: Row(
@@ -427,14 +524,11 @@ class _DataIzinPageState extends State<DataIzinPage> {
                 ],
               ),
             ),
-
-            // Body
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Duration badge
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -458,10 +552,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
                       ],
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
-                  // Date info
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,15 +621,13 @@ class _DataIzinPageState extends State<DataIzinPage> {
                 ],
               ),
             ),
-
-            // Footer
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(14),
-                  bottomRight: Radius.circular(14),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
                 ),
               ),
               child: Row(

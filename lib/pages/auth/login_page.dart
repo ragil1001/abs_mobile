@@ -6,6 +6,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../components/custom_snackbar.dart';
+import '../../../data/services/firebase_messaging_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -108,7 +109,20 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         await _fadeController.reverse();
         if (!mounted) return;
 
+        // Navigate ke home
         Navigator.pushReplacementNamed(context, '/home');
+
+        // Wait for home page to fully load
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Mark app as ready dan process pending notification
+        FirebaseMessagingService.markAppReady();
+
+        // Check and process pending notification
+        if (FirebaseMessagingService.hasPendingNotification()) {
+          print('📱 Processing pending notification after login...');
+          await FirebaseMessagingService.processPendingNotification();
+        }
       } else {
         CustomSnackbar.showError(
           context,

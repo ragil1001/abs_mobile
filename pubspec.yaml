@@ -49,6 +49,10 @@ dependencies:
   safe_device: ^1.1.5 # Detect mock location, developer mode
   installed_apps: ^1.4.0 # Detect installed fake GPS apps
 
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+  flutter_local_notifications: ^19.4.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

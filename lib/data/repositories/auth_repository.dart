@@ -1,3 +1,5 @@
+// lib/data/repositories/auth_repository.dart
+import 'dart:io'; // Import ini untuk Platform
 import '../models/karyawan_model.dart';
 import '../models/auth_response_model.dart';
 import '../services/api_service.dart';
@@ -169,5 +171,62 @@ class AuthRepository {
   /// Check if should remember
   Future<bool> shouldRemember() async {
     return await _storageService.shouldRemember();
+  }
+
+  /// Store FCM token to backend
+  Future<void> storeFcmToken(String fcmToken) async {
+    try {
+      // Detect platform
+      String deviceType = 'android'; // Default
+      String deviceName = '';
+
+      if (Platform.isIOS) {
+        deviceType = 'ios';
+        deviceName = 'iOS Device';
+      } else if (Platform.isAndroid) {
+        deviceType = 'android';
+        deviceName = 'Android Device';
+      }
+
+      final response = await _apiService.post(AppConfig.storeFcmTokenEndpoint, {
+        'token': fcmToken,
+        'device_type': deviceType,
+        'device_name': deviceName,
+      });
+
+      if (response['success'] != true) {
+        throw ApiException(response['message'] ?? 'Gagal menyimpan FCM token');
+      }
+
+      print('FCM token stored successfully');
+    } catch (e) {
+      print('Store FCM token error: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete FCM token from backend
+  Future<void> deleteFcmToken(String fcmToken) async {
+    try {
+      print('🗑️ Deleting FCM token from backend...');
+      print('Token: ${fcmToken.substring(0, 20)}...');
+
+      // Kirim token sebagai body untuk DELETE request
+      final response = await _apiService.delete(
+        AppConfig.deleteFcmTokenEndpoint,
+        data: {'token': fcmToken},
+      );
+
+      if (response['success'] == true) {
+        print('✅ FCM token deleted from backend successfully');
+      } else {
+        print(
+          '⚠️ Failed to delete FCM token from backend: ${response['message']}',
+        );
+      }
+    } catch (e) {
+      print('❌ Delete FCM token error: $e');
+      // Don't throw error, logout should continue
+    }
   }
 }

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/izin_provider.dart';
 import '../core/constants/app_colors.dart';
+import '../components/custom_snackbar.dart';
+import '../components/shimmer_loading.dart';
 import 'form_pengajuan_izin_page.dart';
 import 'detail_izin_page.dart';
 
@@ -16,6 +18,7 @@ class PengajuanIzinPage extends StatefulWidget {
 
 class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
   String _filterTab = "Semua";
+  DateTime? _lastRefreshTime;
 
   @override
   void initState() {
@@ -25,8 +28,15 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
     });
   }
 
+  bool get _shouldRefresh {
+    if (_lastRefreshTime == null) return true;
+    return DateTime.now().difference(_lastRefreshTime!).inSeconds > 30;
+  }
+
   Future<void> _loadData() async {
     if (!mounted) return;
+    _lastRefreshTime = DateTime.now();
+
     final izinProvider = Provider.of<IzinProvider>(context, listen: false);
     await izinProvider.loadPengajuan();
   }
@@ -38,6 +48,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
     );
 
     if (result == true && mounted) {
+      _lastRefreshTime = null;
       _loadData();
     }
   }
@@ -51,6 +62,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
         position.dx + 1,
         position.dy + 1,
       ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       items: [
         const PopupMenuItem(
           value: "detail",
@@ -84,10 +96,14 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
     if (!mounted) return;
 
     if (result == "detail") {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => DetailIzinPage(izinId: izin.id)),
       );
+      // Refresh after returning
+      if (mounted && _shouldRefresh) {
+        _loadData();
+      }
     } else if (result == "cancel") {
       _confirmCancel(izin.id);
     } else if (result == "delete") {
@@ -100,6 +116,9 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text("Konfirmasi"),
           content: const Text(
             "Apakah Anda yakin ingin membatalkan pengajuan izin ini?",
@@ -112,43 +131,34 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
-
-                // Use the parent context, not dialog context
                 if (!mounted) return;
 
-                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 final izinProvider = Provider.of<IzinProvider>(
                   context,
                   listen: false,
                 );
-
                 final success = await izinProvider.batalkanPengajuan(id);
 
-                // Check mounted again before showing snackbar
                 if (!mounted) return;
 
                 if (success) {
-                  scaffoldMessenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Pengajuan berhasil dibatalkan'),
-                      backgroundColor: AppColors.success,
-                    ),
+                  CustomSnackbar.showSuccess(
+                    context,
+                    'Pengajuan berhasil dibatalkan',
                   );
                 } else {
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        izinProvider.errorMessage ??
-                            'Gagal membatalkan pengajuan',
-                      ),
-                      backgroundColor: AppColors.error,
-                    ),
+                  CustomSnackbar.showError(
+                    context,
+                    izinProvider.errorMessage ?? 'Gagal membatalkan pengajuan',
                   );
                 }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.error,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               child: const Text("Ya, Batalkan"),
             ),
@@ -163,6 +173,9 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text("Konfirmasi"),
           content: const Text(
             "Apakah Anda yakin ingin menghapus pengajuan izin ini?",
@@ -175,43 +188,34 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
-
-                // Use the parent context, not dialog context
                 if (!mounted) return;
 
-                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 final izinProvider = Provider.of<IzinProvider>(
                   context,
                   listen: false,
                 );
-
                 final success = await izinProvider.hapusPengajuan(id);
 
-                // Check mounted again before showing snackbar
                 if (!mounted) return;
 
                 if (success) {
-                  scaffoldMessenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Pengajuan berhasil dihapus'),
-                      backgroundColor: AppColors.success,
-                    ),
+                  CustomSnackbar.showSuccess(
+                    context,
+                    'Pengajuan berhasil dihapus',
                   );
                 } else {
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        izinProvider.errorMessage ??
-                            'Gagal menghapus pengajuan',
-                      ),
-                      backgroundColor: AppColors.error,
-                    ),
+                  CustomSnackbar.showError(
+                    context,
+                    izinProvider.errorMessage ?? 'Gagal menghapus pengajuan',
                   );
                 }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.error,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               child: const Text("Ya, Hapus"),
             ),
@@ -223,127 +227,285 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pengajuan Izin'),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _navigateToForm),
-        ],
-      ),
-      body: Consumer<IzinProvider>(
-        builder: (context, izinProvider, child) {
-          if (izinProvider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
-            );
-          }
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final padding = screenWidth * 0.06;
 
-          if (izinProvider.state == IzinState.error) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 254, 253, 253),
+      body: SafeArea(
+        child: Consumer<IzinProvider>(
+          builder: (context, izinProvider, child) {
+            if (izinProvider.isLoading) {
+              return Column(
                 children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: AppColors.error.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    izinProvider.errorMessage ?? 'Terjadi kesalahan',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadData,
-                    child: const Text('Coba Lagi'),
+                  _buildHeader(context, screenWidth, screenHeight, padding),
+                  _buildTabBar(izinProvider, screenWidth),
+                  Expanded(child: _buildShimmerLayout(screenWidth, padding)),
+                ],
+              );
+            }
+
+            if (izinProvider.state == IzinState.error) {
+              return Column(
+                children: [
+                  _buildHeader(context, screenWidth, screenHeight, padding),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: AppColors.error.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            izinProvider.errorMessage ?? 'Terjadi kesalahan',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              _lastRefreshTime = null;
+                              _loadData();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Coba Lagi'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
-              ),
+              );
+            }
+
+            final filteredList = _getFilteredList(izinProvider);
+
+            return Column(
+              children: [
+                _buildHeader(context, screenWidth, screenHeight, padding),
+                _buildTabBar(izinProvider, screenWidth),
+                const Divider(height: 1),
+                Expanded(
+                  child: filteredList.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.inbox_outlined,
+                                size: 64,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Belum ada pengajuan izin',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: _navigateToForm,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Ajukan Izin'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () async {
+                            _lastRefreshTime = null;
+                            await _loadData();
+                          },
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: filteredList.length,
+                            itemBuilder: (context, index) {
+                              final izin = filteredList[index];
+                              return _buildIzinCard(izin);
+                            },
+                          ),
+                        ),
+                ),
+              ],
             );
-          }
+          },
+        ),
+      ),
+    );
+  }
 
-          // Get filtered list based on tab
-          final filteredList = _getFilteredList(izinProvider);
-
-          return Column(
-            children: [
-              // Tabs
-              Container(
-                color: Colors.white,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+  Widget _buildShimmerLayout(double screenWidth, double padding) {
+    return ShimmerLoading(
+      child: ListView.builder(
+        padding: EdgeInsets.all(padding),
+        itemCount: 5,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      _buildTab("Semua", izinProvider.izinList.length),
-                      _buildTab("Pengajuan", izinProvider.pengajuanList.length),
-                      _buildTab("Disetujui", izinProvider.disetujuiList.length),
-                      _buildTab("Ditolak", izinProvider.ditolakList.length),
-                      _buildTab(
-                        "Dibatalkan",
-                        izinProvider.dibatalkanList.length,
+                      ShimmerBox(width: 60, height: 20, borderRadius: 6),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ShimmerBox(
+                          width: double.infinity,
+                          height: 16,
+                          borderRadius: 4,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              const Divider(height: 1),
-
-              // List izin
-              Expanded(
-                child: filteredList.isEmpty
-                    ? Center(
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      ShimmerBox(width: 60, height: 80, borderRadius: 8),
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.inbox_outlined,
-                              size: 64,
-                              color: Colors.grey.shade300,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Belum ada pengajuan izin',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 16,
-                              ),
+                            ShimmerBox(
+                              width: screenWidth * 0.4,
+                              height: 14,
+                              borderRadius: 4,
                             ),
                             const SizedBox(height: 8),
-                            TextButton.icon(
-                              onPressed: _navigateToForm,
-                              icon: const Icon(Icons.add),
-                              label: const Text('Ajukan Izin'),
+                            ShimmerBox(
+                              width: screenWidth * 0.35,
+                              height: 14,
+                              borderRadius: 4,
+                            ),
+                            const SizedBox(height: 12),
+                            ShimmerBox(
+                              width: screenWidth * 0.6,
+                              height: 12,
+                              borderRadius: 4,
                             ),
                           ],
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: filteredList.length,
-                          itemBuilder: (context, index) {
-                            final izin = filteredList[index];
-                            return _buildIzinCard(izin);
-                          },
-                        ),
                       ),
-              ),
-            ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    double screenWidth,
+    double screenHeight,
+    double padding,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: padding,
+        vertical: screenHeight * 0.02,
+      ),
+      color: Colors.white,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                size: screenWidth * 0.045,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Text(
+            "Pengajuan Izin",
+            style: TextStyle(
+              fontSize: screenWidth * 0.048,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: _navigateToForm,
+            child: Container(
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.add,
+                size: screenWidth * 0.05,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar(IzinProvider provider, double screenWidth) {
+    return Container(
+      color: Colors.white,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            _buildTab("Semua", provider.izinList.length),
+            _buildTab("Pengajuan", provider.pengajuanList.length),
+            _buildTab("Disetujui", provider.disetujuiList.length),
+            _buildTab("Ditolak", provider.ditolakList.length),
+            _buildTab("Dibatalkan", provider.dibatalkanList.length),
+          ],
+        ),
       ),
     );
   }
@@ -406,11 +568,11 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade200,
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
@@ -418,14 +580,13 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
             ),
             child: Row(
@@ -467,13 +628,22 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                   onTapDown: (details) {
                     _showMenu(context, izin, details.globalPosition);
                   },
-                  child: Icon(Icons.more_vert, color: Colors.grey.shade600),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.more_vert,
+                      color: Colors.grey.shade700,
+                      size: 20,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-
-          // Body
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -558,7 +728,6 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                     ),
                   ],
                 ),
-
                 if (izin.keterangan != null && izin.keterangan!.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -568,10 +737,8 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-
                 const SizedBox(height: 8),
                 const Divider(),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
