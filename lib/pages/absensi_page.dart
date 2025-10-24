@@ -7,7 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../data/services/api_service.dart';
+import '../data/services/dio_service.dart';
 import '../data/services/fake_gps_detector_service.dart';
 import '../core/config/app_config.dart';
 import 'selfie_page.dart';
@@ -36,7 +36,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   String? _fakeGpsMessage;
   List<FakeGpsDetectionType> _detectionTypes = [];
 
-  // NEW: Jabatan excluded state
+  // Jabatan excluded state
   bool _isJabatanExcluded = false;
 
   // Data presensi dari API
@@ -44,6 +44,10 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   String? _errorMessage;
   bool _dalamRadius = false;
   double? _jarakKeProject;
+
+  // ✅ NEW: Validation status tracking
+  String _validationStatus = 'Memuat...';
+  bool _isInitialCheckComplete = false;
 
   @override
   void initState() {
@@ -88,8 +92,8 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   Future<void> _initializePresensi() async {
     if (_isDisposed || !mounted) return;
 
-    await _cekPresensi();
-    await _determinePositionAndListen();
+    // Parallel execution untuk mempercepat
+    await Future.wait([_cekPresensi(), _determinePositionAndListen()]);
   }
 
   Future<void> _cekPresensi() async {
@@ -108,8 +112,8 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         throw ApiException('Token tidak ditemukan');
       }
 
-      final apiService = ApiService();
-      final response = await apiService.get(
+      final dioService = DioService();
+      final response = await dioService.get(
         '${AppConfig.mobileApiPrefix}/presensi/cek',
       );
 
@@ -117,13 +121,16 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         setState(() {
           _presensiData = response['data'];
 
-          // NEW: Check if jabatan excluded
+          // ✅ CRITICAL FIX: Parse jabatan excluded dari response
           final karyawanData = response['data']['karyawan'];
           _isJabatanExcluded =
               karyawanData != null &&
               karyawanData['is_jabatan_excluded'] == true;
 
           _isLoadingPresensi = false;
+
+          debugPrint('📋 Presensi Data Loaded:');
+          debugPrint('   Jabatan Excluded: $_isJabatanExcluded');
         });
       } else {
         throw ApiException(response['message'] ?? 'Gagal mengecek presensi');
@@ -170,15 +177,26 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         return;
       }
 
+      // ✅ Update status
+      if (mounted) {
+        setState(() {
+          _validationStatus = 'Mendapatkan GPS...';
+        });
+      }
+
+      // ✅ OPTIMIZED: Timeout lebih pendek untuk initial position
       try {
         Position pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 10),
+          timeLimit: const Duration(seconds: 5), // Reduced from 8
         );
         if (mounted && !_isDisposed) {
           await _applyNewPosition(pos, initial: true);
         }
-      } catch (_) {}
+      } catch (_) {
+        // Jika timeout, position stream akan menghandle
+        debugPrint('⚠️ Initial position timeout, waiting for stream...');
+      }
 
       await _positionStreamSubscription?.cancel();
       _positionStreamSubscription = Geolocator.getPositionStream(
@@ -201,19 +219,49 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       _currentPosition = pos;
       _currentLatLng = LatLng(pos.latitude, pos.longitude);
       _akurasi = pos.accuracy;
+      if (initial) {
+        _validationStatus = 'Memeriksa keamanan...';
+      }
     });
 
     if (_currentLatLng != null && initial) {
       _mapController.move(_currentLatLng!, 16.0);
     }
 
-    await _detectFakeGps(pos);
+    // ✅ CRITICAL FIX: Jalankan fake GPS dan validasi lokasi secara paralel
+    // HANYA jika presensi data sudah loaded
+    if (_presensiData != null && _currentLatLng != null) {
+      // ✅ OPTIMIZED: Parallel execution dengan timeout
+      await Future.wait([
+        _detectFakeGps(pos).timeout(
+          const Duration(seconds: 3),
+          onTimeout: () {
+            debugPrint('⚠️ Fake GPS detection timeout');
+          },
+        ),
+        _validasiLokasi().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () {
+            debugPrint('⚠️ Location validation timeout');
+            // Set default values on timeout
+            if (mounted && !_isDisposed) {
+              setState(() {
+                _isValidatingLocation = false;
+                _validationStatus = 'Gagal validasi (timeout)';
+              });
+            }
+          },
+        ),
+      ]);
 
-    // Validate location only if no fake GPS detected
-    if (!_isFakeGpsDetected &&
-        _presensiData != null &&
-        _currentLatLng != null) {
-      await _validasiLokasi();
+      // ✅ Mark initial check complete
+      if (mounted && !_isDisposed && !_isInitialCheckComplete) {
+        setState(() {
+          _isInitialCheckComplete = true;
+        });
+      }
+    } else {
+      await _detectFakeGps(pos);
     }
   }
 
@@ -228,6 +276,11 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           _isFakeGpsDetected = result.shouldBlockAccess;
           _fakeGpsMessage = result.message;
           _detectionTypes = result.detections;
+
+          // ✅ Update validation status
+          if (_isFakeGpsDetected) {
+            _validationStatus = 'Fake GPS Terdeteksi';
+          }
         });
       }
     } catch (e) {
@@ -241,11 +294,12 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
 
     setState(() {
       _isValidatingLocation = true;
+      _validationStatus = 'Validasi lokasi...';
     });
 
     try {
-      final apiService = ApiService();
-      final response = await apiService
+      final dioService = DioService();
+      final response = await dioService
           .post('${AppConfig.mobileApiPrefix}/presensi/validasi-lokasi', {
             'latitude': _currentLatLng!.latitude,
             'longitude': _currentLatLng!.longitude,
@@ -257,20 +311,33 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
             _dalamRadius = response['data']['dalam_radius'] ?? false;
             _jarakKeProject = response['data']['jarak']?.toDouble();
 
-            // UPDATE: Extract jabatan excluded dari response
+            // ✅ CRITICAL FIX: Update _isJabatanExcluded dari response validasi
             _isJabatanExcluded =
-                response['data']['is_jabatan_excluded'] ?? false;
+                response['data']['is_jabatan_excluded'] ?? _isJabatanExcluded;
 
-            // DEBUG LOG
-            debugPrint(
-              'Validasi Lokasi Result: dalam_radius=$_dalamRadius, '
-              'is_jabatan_excluded=$_isJabatanExcluded, jarak=$_jarakKeProject',
-            );
+            debugPrint('📍 Validasi Lokasi Result:');
+            debugPrint('   Dalam Radius: $_dalamRadius');
+            debugPrint('   Jarak: $_jarakKeProject');
+            debugPrint('   Jabatan Excluded: $_isJabatanExcluded');
+
+            // ✅ Update validation status
+            if (_isJabatanExcluded) {
+              _validationStatus = 'Siap (Jabatan Dikecualikan)';
+            } else if (_dalamRadius) {
+              _validationStatus = 'Siap (Dalam Radius)';
+            } else {
+              _validationStatus = 'Di Luar Radius';
+            }
           });
         }
       }
     } catch (e) {
       debugPrint('Validasi lokasi error: $e');
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _validationStatus = 'Gagal validasi lokasi';
+        });
+      }
     } finally {
       if (mounted && !_isDisposed) {
         setState(() {
@@ -290,6 +357,8 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       _isFakeGpsDetected = false;
       _fakeGpsMessage = null;
       _detectionTypes = [];
+      _isInitialCheckComplete = false;
+      _validationStatus = 'Memuat ulang...';
     });
 
     await _cekPresensi();
@@ -297,10 +366,10 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
     try {
       Position pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        timeLimit: const Duration(seconds: 5),
       );
       if (mounted && !_isDisposed) {
-        await _applyNewPosition(pos);
+        await _applyNewPosition(pos, initial: true);
       }
     } catch (e) {
       if (mounted && !_isDisposed) {
@@ -320,13 +389,18 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   }
 
   void _handlePresensiButton() {
-    // ========== STEP 1: Check fake GPS (PRIORITY TERTINGGI) ==========
+    // ✅ CRITICAL FIX: Check jabatan excluded FIRST before other validations
+    if (_isJabatanExcluded) {
+      debugPrint('🔓 Jabatan dikecualikan - bypass radius check');
+      _navigateToSelfie();
+      return;
+    }
+
     if (_isFakeGpsDetected) {
       _showFakeGpsBlockDialog();
       return;
     }
 
-    // ========== STEP 2: Check GPS tersedia ==========
     if (_currentLatLng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -337,7 +411,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       return;
     }
 
-    // ========== STEP 3: Tunggu validasi lokasi selesai ==========
     if (_isValidatingLocation) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -349,10 +422,8 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       return;
     }
 
-    // ========== STEP 4: Validasi radius (kecuali jabatan excluded) ==========
-    final canPresensiByLocation = _dalamRadius || _isJabatanExcluded;
-
-    if (!canPresensiByLocation) {
+    // Check if within radius (only for non-excluded jabatan)
+    if (!_dalamRadius) {
       if (_jarakKeProject != null) {
         final radius = _presensiData?['project']?['radius']?.toDouble() ?? 0.0;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -377,7 +448,10 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       return;
     }
 
-    // ========== STEP 5: Check jadwal dan waktu presensi ==========
+    _navigateToSelfie();
+  }
+
+  void _navigateToSelfie() {
     final bisaMasuk = _presensiData?['bisa_presensi_masuk'] ?? false;
     final bisaPulang = _presensiData?['bisa_presensi_pulang'] ?? false;
     final jadwalId = _presensiData?['jadwal_id'];
@@ -392,7 +466,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       return;
     }
 
-    // ✅ FIX: Determine mode - NON-NULLABLE
     String mode;
 
     if (bisaMasuk) {
@@ -400,7 +473,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
     } else if (bisaPulang) {
       mode = 'pulang';
     } else {
-      // Tidak bisa masuk dan tidak bisa pulang
       final pesanWaktu =
           _presensiData?['waktu_info']?['pesan'] ??
           'Tidak dapat melakukan presensi saat ini';
@@ -412,23 +484,14 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           duration: const Duration(seconds: 3),
         ),
       );
-      return; // Early return - mode tidak akan digunakan
+      return;
     }
 
-    // ✅ DEBUG LOG
-    debugPrint('=== PRESENSI BUTTON DEBUG ===');
-    debugPrint('bisaMasuk: $bisaMasuk');
-    debugPrint('bisaPulang: $bisaPulang');
-    debugPrint('mode: $mode'); // Mode pasti non-null di sini
-    debugPrint('canPresensiByLocation: $canPresensiByLocation');
-    debugPrint('============================');
-
-    // ========== All checks passed, go to selfie page ==========
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => SelfiePage(
-          mode: mode, // ✅ Type safe - String (non-nullable)
+          mode: mode,
           jadwalId: jadwalId,
           latitude: _currentLatLng!.latitude,
           longitude: _currentLatLng!.longitude,
@@ -598,7 +661,19 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
     }
 
     if (_currentLatLng == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: Colors.grey[100],
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Mendapatkan lokasi GPS...'),
+            ],
+          ),
+        ),
+      );
     }
 
     final project = _presensiData?['project'];
@@ -615,6 +690,17 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           )
         : null;
     final projectRadius = project?['radius']?.toDouble() ?? 0.0;
+
+    // ✅ CRITICAL FIX: Determine if button should be enabled
+    final canPresensiByLocation = _dalamRadius || _isJabatanExcluded;
+    final canPresensiByTime = bisaMasuk || bisaPulang;
+    final isButtonEnabled =
+        _isInitialCheckComplete &&
+        !_isFakeGpsDetected &&
+        !_isValidatingLocation &&
+        _currentLatLng != null &&
+        canPresensiByLocation &&
+        canPresensiByTime;
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -645,10 +731,10 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
                       point: projectLatLng,
                       radius: projectRadius,
                       useRadiusInMeter: true,
-                      color: (_dalamRadius || _isJabatanExcluded)
+                      color: canPresensiByLocation
                           ? Colors.green.withOpacity(0.2)
                           : Colors.red.withOpacity(0.2),
-                      borderColor: (_dalamRadius || _isJabatanExcluded)
+                      borderColor: canPresensiByLocation
                           ? Colors.green
                           : Colors.red,
                       borderStrokeWidth: 2,
@@ -819,7 +905,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
               ),
             ),
 
-          // NEW: Jabatan excluded info (PRIORITY HIGH)
+          // Jabatan excluded info
           if (_isJabatanExcluded && !_isFakeGpsDetected)
             SafeArea(
               child: Padding(
@@ -837,16 +923,16 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      const Icon(Icons.shield, color: Colors.white, size: 24),
-                      const SizedBox(width: 12),
+                      Icon(Icons.shield, color: Colors.white, size: 24),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
+                            Text(
                               'PENGECUALIAN RADIUS AKTIF',
                               style: TextStyle(
                                 color: Colors.white,
@@ -854,9 +940,9 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Jabatan Anda dikecualikan dari pengecekan radius. Anda dapat presensi dari lokasi manapun.',
+                            SizedBox(height: 4),
+                            Text(
+                              'Jabatan Anda dikecualikan dari pengecekan radius.',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -871,7 +957,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
               ),
             ),
 
-          // Out of radius warning (only if NOT excluded and NO fake GPS)
+          // Out of radius warning
           if (!_isJabatanExcluded &&
               !_isFakeGpsDetected &&
               !_dalamRadius &&
@@ -995,67 +1081,82 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
 
                   const SizedBox(height: 16),
 
-                  // Presensi status
-                  Row(
-                    children: [
-                      Icon(
-                        sudahMasuk ? Icons.check_circle : Icons.access_time,
-                        color: sudahMasuk ? Colors.green : Colors.orange,
-                        size: 20,
+                  // ✅ Validation Status Indicator
+                  if (!_isInitialCheckComplete)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        sudahMasuk
-                            ? 'Sudah presensi masuk'
-                            : 'Belum presensi masuk',
-                        style: TextStyle(
-                          fontSize: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue[200]!, width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.blue[700]!,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _validationStatus,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.blue[900],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  if (_isInitialCheckComplete) ...[
+                    // Presensi status
+                    Row(
+                      children: [
+                        Icon(
+                          sudahMasuk ? Icons.check_circle : Icons.access_time,
                           color: sudahMasuk ? Colors.green : Colors.orange,
-                          fontWeight: FontWeight.w600,
+                          size: 20,
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 8),
+                        Text(
+                          sudahMasuk
+                              ? 'Sudah presensi masuk'
+                              : 'Belum presensi masuk',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: sudahMasuk ? Colors.green : Colors.orange,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
 
                   const SizedBox(height: 12),
 
                   // Presensi button
-                  // Presensi button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // ✅ FIX: Kondisi yang lebih simple dan jelas
-
-                        // Check 1: Fake GPS
-                        if (_isFakeGpsDetected) return null;
-
-                        // Check 2: Masih validating location
-                        if (_isValidatingLocation) return null;
-
-                        // Check 3: GPS tidak tersedia
-                        if (_currentLatLng == null) return null;
-
-                        // Check 4: Harus dalam radius ATAU jabatan excluded
-                        final canByLocation =
-                            _dalamRadius || _isJabatanExcluded;
-                        if (!canByLocation) return null;
-
-                        // Check 5: Harus bisa presensi masuk ATAU pulang
-                        final bisaMasuk =
-                            _presensiData?['bisa_presensi_masuk'] ?? false;
-                        final bisaPulang =
-                            _presensiData?['bisa_presensi_pulang'] ?? false;
-
-                        if (!bisaMasuk && !bisaPulang) return null;
-
-                        // ✅ All checks passed - button ENABLED
-                        return _handlePresensiButton;
-                      }(),
+                      onPressed: isButtonEnabled ? _handlePresensiButton : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isFakeGpsDetected
+                        backgroundColor: !_isInitialCheckComplete
+                            ? Colors.grey[400]
+                            : _isFakeGpsDetected
                             ? Colors.red
-                            : (_dalamRadius || _isJabatanExcluded)
+                            : isButtonEnabled
                             ? Colors.blue
                             : Colors.grey,
                         foregroundColor: Colors.white,
@@ -1063,32 +1164,50 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        elevation:
-                            ((_dalamRadius || _isJabatanExcluded) &&
-                                !_isFakeGpsDetected)
-                            ? 2
-                            : 0,
+                        elevation: isButtonEnabled ? 2 : 0,
                       ),
-                      child: Text(
-                        _isFakeGpsDetected
-                            ? 'Fake GPS Terdeteksi'
-                            : _isValidatingLocation
-                            ? 'Memvalidasi Lokasi...'
-                            : (_presensiData?['bisa_presensi_masuk'] ?? false)
-                            ? 'Presensi Masuk'
-                            : (_presensiData?['bisa_presensi_pulang'] ?? false)
-                            ? 'Presensi Pulang'
-                            : 'Tidak Dapat Presensi',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (!_isInitialCheckComplete) ...[
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          Text(
+                            !_isInitialCheckComplete
+                                ? _validationStatus
+                                : _isFakeGpsDetected
+                                ? 'Fake GPS Terdeteksi'
+                                : _isValidatingLocation
+                                ? 'Memvalidasi Lokasi...'
+                                : bisaMasuk
+                                ? 'Presensi Masuk'
+                                : bisaPulang
+                                ? 'Presensi Pulang'
+                                : 'Tidak Dapat Presensi',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
-                  // NEW: Info text below button if jabatan excluded
-                  if (_isJabatanExcluded && (bisaMasuk || bisaPulang))
+                  // Info text if jabatan excluded
+                  if (_isJabatanExcluded &&
+                      _isInitialCheckComplete &&
+                      canPresensiByTime)
                     const Padding(
                       padding: EdgeInsets.only(top: 8),
                       child: Row(

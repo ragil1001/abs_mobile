@@ -1,8 +1,6 @@
 // lib/pages/notification_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_routes.dart';
@@ -65,7 +63,7 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   void _handleNotificationTap(NotificationModel notification) {
-    // Mark as read
+    // Mark as read immediately
     if (!notification.isRead) {
       _markAsRead(notification);
     }
@@ -79,7 +77,31 @@ class _NotificationPageState extends State<NotificationPage> {
       case 'izin_rejected':
         final izinId = int.tryParse(data['pengajuan_izin_id'] ?? '');
         if (izinId != null) {
-          Navigator.pushNamed(context, AppRoutes.detailIzin, arguments: izinId);
+          Navigator.pushNamed(
+            context,
+            AppRoutes.detailIzin,
+            arguments: izinId,
+          ).then((_) {
+            if (mounted && _shouldRefresh) {
+              _loadNotifications();
+            }
+          });
+        }
+        break;
+
+      case 'lembur_approved':
+      case 'lembur_rejected':
+        final lemburId = int.tryParse(data['pengajuan_lembur_id'] ?? '');
+        if (lemburId != null) {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.detailLembur,
+            arguments: lemburId,
+          ).then((_) {
+            if (mounted && _shouldRefresh) {
+              _loadNotifications();
+            }
+          });
         }
         break;
 
@@ -89,22 +111,57 @@ class _NotificationPageState extends State<NotificationPage> {
         final tukarShiftId = int.tryParse(data['tukar_shift_id'] ?? '');
         if (tukarShiftId != null) {
           // TODO: Implement detail tukar shift page
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Detail tukar shift belum tersedia')),
-          );
+          Navigator.pushNamed(
+            context,
+            AppRoutes.detailTukarShift,
+            arguments: tukarShiftId,
+          ).then((_) {
+            if (mounted && _shouldRefresh) {
+              _loadNotifications();
+            }
+          });
         }
         break;
 
+      case 'presensi_alpa':
+      case 'presensi_tidak_pulang':
+      case 'presensi_diupdate':
+      case 'lembur_dikonfirmasi':
+      case 'lembur_ditolak':
+        // Navigate ke history absensi dengan tanggal yang sesuai
+        final tanggal = data['tanggal'] ?? '';
+        if (tanggal.isNotEmpty) {
+          Navigator.pushNamed(
+            context,
+            AppRoutes.historyAbsensi,
+            arguments: {'tanggal': tanggal},
+          ).then((_) {
+            if (mounted && _shouldRefresh) {
+              _loadNotifications();
+            }
+          });
+        }
+        break;
+
+      case 'jadwal_baru':
+      case 'jadwal_diupdate':
+        // Navigate ke halaman jadwal
+        Navigator.pushNamed(context, AppRoutes.jadwal).then((_) {
+          if (mounted && _shouldRefresh) {
+            _loadNotifications();
+          }
+        });
+        break;
+
       default:
-        // Do nothing
+        // Untuk notifikasi lain, tetap refresh setelah delay
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && _shouldRefresh) {
+            _loadNotifications();
+          }
+        });
         break;
     }
-
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted && _shouldRefresh) {
-        _loadNotifications();
-      }
-    });
   }
 
   Future<void> _deleteNotification(int notificationId) async {

@@ -96,7 +96,10 @@ class _TukarShiftSelectKaryawanPageState
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final padding = screenWidth * 0.06;
+    final padding = screenWidth * 0.05;
+    final titleFontSize = (screenWidth * 0.048).clamp(16.0, 20.0);
+    final bodyFontSize = (screenWidth * 0.036).clamp(12.0, 14.0);
+    final smallFontSize = (screenWidth * 0.032).clamp(10.0, 12.0);
     final myShift = widget.selectedShift;
 
     return Scaffold(
@@ -104,10 +107,16 @@ class _TukarShiftSelectKaryawanPageState
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context, screenWidth, screenHeight, padding),
+            _buildHeader(
+              context,
+              screenWidth,
+              screenHeight,
+              padding,
+              titleFontSize,
+            ),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(padding),
               color: Colors.blue.shade50,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,22 +126,22 @@ class _TukarShiftSelectKaryawanPageState
                       Icon(
                         Icons.info_outline,
                         color: Colors.blue.shade700,
-                        size: 20,
+                        size: (screenWidth * 0.05).clamp(18.0, 20.0),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: screenWidth * 0.02),
                       Text(
                         'Shift yang akan ditukar:',
                         style: TextStyle(
                           color: Colors.blue.shade900,
-                          fontSize: 13,
+                          fontSize: bodyFontSize,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: screenWidth * 0.025),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(screenWidth * 0.03),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -141,9 +150,9 @@ class _TukarShiftSelectKaryawanPageState
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.025,
+                            vertical: screenWidth * 0.015,
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.primary,
@@ -151,14 +160,14 @@ class _TukarShiftSelectKaryawanPageState
                           ),
                           child: Text(
                             'Shift ${myShift.shiftCode}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                              fontSize: smallFontSize,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: screenWidth * 0.03),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,15 +177,15 @@ class _TukarShiftSelectKaryawanPageState
                                   'EEEE, dd MMMM yyyy',
                                   'id_ID',
                                 ).format(myShift.tanggal),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 13,
+                                  fontSize: bodyFontSize,
                                 ),
                               ),
                               Text(
                                 '${myShift.waktuMulai} - ${myShift.waktuSelesai}',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: smallFontSize,
                                   color: Colors.grey.shade600,
                                 ),
                               ),
@@ -190,17 +199,25 @@ class _TukarShiftSelectKaryawanPageState
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(padding),
               child: Column(
                 children: [
                   TextField(
                     controller: _searchController,
+                    style: TextStyle(fontSize: bodyFontSize),
                     decoration: InputDecoration(
                       hintText: 'Cari nama atau no telepon...',
-                      prefixIcon: const Icon(Icons.search),
+                      hintStyle: TextStyle(fontSize: bodyFontSize),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        size: (screenWidth * 0.06).clamp(20.0, 24.0),
+                      ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.close),
+                              icon: Icon(
+                                Icons.close,
+                                size: (screenWidth * 0.05).clamp(18.0, 20.0),
+                              ),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() {
@@ -217,9 +234,9 @@ class _TukarShiftSelectKaryawanPageState
                       ),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.04,
+                        vertical: screenHeight * 0.015,
                       ),
                     ),
                     onChanged: (value) {
@@ -233,13 +250,16 @@ class _TukarShiftSelectKaryawanPageState
                       }
                     },
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: screenWidth * 0.025),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _selectDate,
-                          icon: const Icon(Icons.calendar_today, size: 18),
+                          icon: Icon(
+                            Icons.calendar_today,
+                            size: (screenWidth * 0.045).clamp(16.0, 18.0),
+                          ),
                           label: Text(
                             _selectedDate == null
                                 ? 'Pilih Tanggal Shift'
@@ -247,11 +267,13 @@ class _TukarShiftSelectKaryawanPageState
                                     'dd MMMM yyyy',
                                     'id_ID',
                                   ).format(_selectedDate!),
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(fontSize: bodyFontSize),
                           ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.primary,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: screenHeight * 0.015,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -259,9 +281,12 @@ class _TukarShiftSelectKaryawanPageState
                         ),
                       ),
                       if (_selectedDate != null) ...[
-                        const SizedBox(width: 8),
+                        SizedBox(width: screenWidth * 0.02),
                         IconButton(
-                          icon: const Icon(Icons.close, size: 20),
+                          icon: Icon(
+                            Icons.close,
+                            size: (screenWidth * 0.05).clamp(18.0, 20.0),
+                          ),
                           onPressed: () {
                             setState(() {
                               _selectedDate = null;
@@ -291,15 +316,15 @@ class _TukarShiftSelectKaryawanPageState
                         children: [
                           Icon(
                             Icons.person_search,
-                            size: 64,
+                            size: (screenWidth * 0.16).clamp(48.0, 64.0),
                             color: Colors.grey.shade300,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: screenHeight * 0.02),
                           Text(
                             'Pilih tanggal untuk melihat karyawan',
                             style: TextStyle(
                               color: Colors.grey.shade600,
-                              fontSize: 16,
+                              fontSize: bodyFontSize,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -321,22 +346,25 @@ class _TukarShiftSelectKaryawanPageState
                   if (provider.errorMessageKaryawan != null) {
                     return Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: EdgeInsets.all(padding),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.error_outline,
-                              size: 64,
+                              size: (screenWidth * 0.16).clamp(48.0, 64.0),
                               color: AppColors.error.withOpacity(0.5),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: screenHeight * 0.02),
                             Text(
                               provider.errorMessageKaryawan!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.black54),
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontSize: bodyFontSize,
+                              ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: screenHeight * 0.02),
                             ElevatedButton(
                               onPressed: _loadKaryawan,
                               style: ElevatedButton.styleFrom(
@@ -345,8 +373,15 @@ class _TukarShiftSelectKaryawanPageState
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenWidth * 0.08,
+                                  vertical: screenHeight * 0.015,
+                                ),
                               ),
-                              child: const Text('Coba Lagi'),
+                              child: Text(
+                                'Coba Lagi',
+                                style: TextStyle(fontSize: bodyFontSize),
+                              ),
                             ),
                           ],
                         ),
@@ -363,15 +398,15 @@ class _TukarShiftSelectKaryawanPageState
                         children: [
                           Icon(
                             Icons.person_search,
-                            size: 64,
+                            size: (screenWidth * 0.16).clamp(48.0, 64.0),
                             color: Colors.grey.shade300,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: screenHeight * 0.02),
                           Text(
                             'Tidak ada karyawan yang ditemukan',
                             style: TextStyle(
                               color: Colors.grey.shade600,
-                              fontSize: 16,
+                              fontSize: bodyFontSize,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -381,20 +416,25 @@ class _TukarShiftSelectKaryawanPageState
                   }
 
                   return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(horizontal: padding),
                     itemCount: karyawanList.length,
                     itemBuilder: (context, index) {
                       final karyawan = karyawanList[index];
                       final isSelected = _selectedKaryawan?.id == karyawan.id;
-
-                      return _buildKaryawanCard(karyawan, isSelected);
+                      return _buildKaryawanCard(
+                        karyawan,
+                        isSelected,
+                        screenWidth,
+                        bodyFontSize,
+                        smallFontSize,
+                      );
                     },
                   );
                 },
               ),
             ),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(padding),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -413,16 +453,18 @@ class _TukarShiftSelectKaryawanPageState
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(
+                        vertical: screenHeight * 0.02,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Review Permintaan',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: bodyFontSize,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -441,7 +483,10 @@ class _TukarShiftSelectKaryawanPageState
     double screenWidth,
     double screenHeight,
     double padding,
+    double titleFontSize,
   ) {
+    final iconSize = (screenWidth * 0.1).clamp(36.0, 42.0);
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: padding,
@@ -453,15 +498,15 @@ class _TukarShiftSelectKaryawanPageState
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: screenWidth * 0.1,
-              height: screenWidth * 0.1,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.arrow_back_ios_new,
-                size: screenWidth * 0.045,
+                size: (screenWidth * 0.045).clamp(16.0, 18.0),
                 color: Colors.black87,
               ),
             ),
@@ -470,26 +515,32 @@ class _TukarShiftSelectKaryawanPageState
           Text(
             "Pilih Karyawan",
             style: TextStyle(
-              fontSize: screenWidth * 0.048,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
               letterSpacing: 0.5,
             ),
           ),
           const Spacer(),
-          SizedBox(width: screenWidth * 0.1),
+          SizedBox(width: iconSize),
         ],
       ),
     );
   }
 
-  Widget _buildKaryawanCard(KaryawanWithShift karyawan, bool isSelected) {
+  Widget _buildKaryawanCard(
+    KaryawanWithShift karyawan,
+    bool isSelected,
+    double screenWidth,
+    double bodyFontSize,
+    double smallFontSize,
+  ) {
     final shift = karyawan.shift;
 
     return GestureDetector(
       onTap: () => _selectKaryawan(karyawan),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: EdgeInsets.only(bottom: screenWidth * 0.03),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -507,13 +558,13 @@ class _TukarShiftSelectKaryawanPageState
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(screenWidth * 0.035),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 54,
-                height: 54,
+                width: (screenWidth * 0.135).clamp(48.0, 54.0),
+                height: (screenWidth * 0.135).clamp(48.0, 54.0),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isSelected
@@ -528,40 +579,40 @@ class _TukarShiftSelectKaryawanPageState
                 child: Icon(
                   Icons.person,
                   color: isSelected ? AppColors.primary : Colors.grey.shade600,
-                  size: 28,
+                  size: (screenWidth * 0.07).clamp(24.0, 28.0),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: screenWidth * 0.035),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       karyawan.nama,
-                      style: const TextStyle(
-                        fontSize: 15,
+                      style: TextStyle(
+                        fontSize: bodyFontSize,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    SizedBox(height: screenWidth * 0.007),
                     Text(
                       '📞 ${karyawan.noTelp}',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: smallFontSize,
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: screenWidth * 0.005),
                     Text(
                       '${karyawan.jabatan} - ${karyawan.divisi}',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: smallFontSize,
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: screenWidth * 0.025),
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: EdgeInsets.all(screenWidth * 0.025),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [Colors.green.shade50, Colors.green.shade100],
@@ -575,18 +626,18 @@ class _TukarShiftSelectKaryawanPageState
                           Text(
                             'Shift Tersedia:',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: (screenWidth * 0.029).clamp(10.0, 11.0),
                               fontWeight: FontWeight.w600,
                               color: Colors.green.shade700,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: screenWidth * 0.015),
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenWidth * 0.02,
+                                  vertical: screenWidth * 0.01,
                                 ),
                                 decoration: BoxDecoration(
                                   color: AppColors.primary,
@@ -594,19 +645,22 @@ class _TukarShiftSelectKaryawanPageState
                                 ),
                                 child: Text(
                                   'Shift ${shift.shiftCode}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 11,
+                                    fontSize: (screenWidth * 0.029).clamp(
+                                      10.0,
+                                      11.0,
+                                    ),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: screenWidth * 0.02),
                               Expanded(
                                 child: Text(
                                   '${shift.waktuMulai} - ${shift.waktuSelesai}',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: smallFontSize,
                                     color: Colors.grey.shade700,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -620,20 +674,24 @@ class _TukarShiftSelectKaryawanPageState
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: screenWidth * 0.025),
               if (isSelected)
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: EdgeInsets.all(screenWidth * 0.015),
                   decoration: const BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 20),
+                  child: Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: (screenWidth * 0.05).clamp(18.0, 20.0),
+                  ),
                 )
               else
                 Container(
-                  width: 28,
-                  height: 28,
+                  width: (screenWidth * 0.07).clamp(24.0, 28.0),
+                  height: (screenWidth * 0.07).clamp(24.0, 28.0),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.grey.shade400, width: 2),

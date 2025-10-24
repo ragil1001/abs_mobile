@@ -187,6 +187,9 @@ class _JadwalPageState extends State<JadwalPage> {
   void _showTukarShiftInfo(jadwal) {
     if (!jadwal.isDitukar || jadwal.tukarShiftInfo == null) return;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isVerySmallScreen = screenWidth < 340;
+
     showDialog(
       context: context,
       builder: (context) {
@@ -197,19 +200,24 @@ class _JadwalPageState extends State<JadwalPage> {
           title: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(isVerySmallScreen ? 6 : 8),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.swap_horiz,
                   color: AppColors.primary,
-                  size: 24,
+                  size: isVerySmallScreen ? 20 : 24,
                 ),
               ),
-              const SizedBox(width: 12),
-              const Text('Shift Ditukar', style: TextStyle(fontSize: 18)),
+              SizedBox(width: isVerySmallScreen ? 8 : 12),
+              Flexible(
+                child: Text(
+                  'Shift Ditukar',
+                  style: TextStyle(fontSize: isVerySmallScreen ? 16 : 18),
+                ),
+              ),
             ],
           ),
           content: Column(
@@ -218,11 +226,14 @@ class _JadwalPageState extends State<JadwalPage> {
             children: [
               Text(
                 'Shift ini telah ditukar dengan:',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: isVerySmallScreen ? 12 : 14,
+                ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: isVerySmallScreen ? 8 : 12),
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: EdgeInsets.all(isVerySmallScreen ? 10 : 14),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -238,8 +249,8 @@ class _JadwalPageState extends State<JadwalPage> {
                 child: Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: isVerySmallScreen ? 38 : 44,
+                      height: isVerySmallScreen ? 38 : 44,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
@@ -249,18 +260,18 @@ class _JadwalPageState extends State<JadwalPage> {
                         ),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.person,
                         color: AppColors.primary,
-                        size: 26,
+                        size: isVerySmallScreen ? 22 : 26,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: isVerySmallScreen ? 8 : 12),
                     Expanded(
                       child: Text(
                         jadwal.tukarShiftInfo!.dengan,
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: TextStyle(
+                          fontSize: isVerySmallScreen ? 14 : 16,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -275,15 +286,18 @@ class _JadwalPageState extends State<JadwalPage> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isVerySmallScreen ? 16 : 20,
+                  vertical: isVerySmallScreen ? 10 : 12,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text('Tutup', style: TextStyle(fontSize: 15)),
+              child: Text(
+                'Tutup',
+                style: TextStyle(fontSize: isVerySmallScreen ? 13 : 15),
+              ),
             ),
           ],
         );
@@ -296,6 +310,8 @@ class _JadwalPageState extends State<JadwalPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final padding = screenWidth * 0.06;
+
+    final bool isVerySmallScreen = screenWidth < 340;
 
     if (_isRefreshing) {
       return Scaffold(
@@ -318,7 +334,7 @@ class _JadwalPageState extends State<JadwalPage> {
         child: Column(
           children: [
             _buildHeader(context, screenWidth, screenHeight, padding),
-            _buildMonthNavigation(screenWidth),
+            _buildMonthNavigation(screenWidth, isVerySmallScreen),
             Expanded(
               child: Consumer<JadwalProvider>(
                 builder: (context, provider, child) {
@@ -327,13 +343,16 @@ class _JadwalPageState extends State<JadwalPage> {
                   }
 
                   if (provider.errorMessage != null) {
-                    return _buildErrorState(provider.errorMessage!);
+                    return _buildErrorState(
+                      provider.errorMessage!,
+                      screenWidth,
+                    );
                   }
 
                   final jadwals = provider.jadwalBulan?.jadwals ?? [];
 
                   if (jadwals.isEmpty) {
-                    return _buildEmptyState();
+                    return _buildEmptyState(screenWidth);
                   }
 
                   return RefreshIndicator(
@@ -342,11 +361,15 @@ class _JadwalPageState extends State<JadwalPage> {
                       await provider.refreshJadwalBulan(_selectedBulan!);
                     },
                     child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(isVerySmallScreen ? 12 : 16),
                       itemCount: jadwals.length,
                       itemBuilder: (context, index) {
                         final jadwal = jadwals[index];
-                        return _buildJadwalCard(jadwal);
+                        return _buildJadwalCard(
+                          jadwal,
+                          screenWidth,
+                          isVerySmallScreen,
+                        );
                       },
                     ),
                   );
@@ -360,36 +383,42 @@ class _JadwalPageState extends State<JadwalPage> {
   }
 
   Widget _buildShimmerLayout(double screenWidth, double padding) {
+    final isVerySmallScreen = screenWidth < 340;
+
     return ShimmerLoading(
       child: ListView.builder(
-        padding: EdgeInsets.all(padding),
+        padding: EdgeInsets.all(isVerySmallScreen ? 12 : padding),
         itemCount: 10,
         itemBuilder: (context, index) {
           return Container(
-            margin: const EdgeInsets.only(bottom: 12),
+            margin: EdgeInsets.only(bottom: isVerySmallScreen ? 10 : 12),
             child: Row(
               children: [
-                ShimmerBox(width: 60, height: 80, borderRadius: 12),
-                const SizedBox(width: 14),
+                ShimmerBox(
+                  width: isVerySmallScreen ? 50 : 60,
+                  height: isVerySmallScreen ? 70 : 80,
+                  borderRadius: 12,
+                ),
+                SizedBox(width: isVerySmallScreen ? 10 : 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ShimmerBox(
                         width: screenWidth * 0.4,
-                        height: 16,
+                        height: isVerySmallScreen ? 14 : 16,
                         borderRadius: 4,
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: isVerySmallScreen ? 6 : 8),
                       ShimmerBox(
                         width: screenWidth * 0.3,
-                        height: 14,
+                        height: isVerySmallScreen ? 12 : 14,
                         borderRadius: 4,
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: isVerySmallScreen ? 6 : 8),
                       ShimmerBox(
                         width: screenWidth * 0.5,
-                        height: 14,
+                        height: isVerySmallScreen ? 12 : 14,
                         borderRadius: 4,
                       ),
                     ],
@@ -404,6 +433,8 @@ class _JadwalPageState extends State<JadwalPage> {
   }
 
   Widget _buildMonthNavigationShimmer(double screenWidth) {
+    final isVerySmallScreen = screenWidth < 340;
+
     return ShimmerLoading(
       child: Container(
         decoration: BoxDecoration(
@@ -416,20 +447,37 @@ class _JadwalPageState extends State<JadwalPage> {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: isVerySmallScreen ? 10 : 12,
+          vertical: isVerySmallScreen ? 8 : 10,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            ShimmerBox(width: 40, height: 40, borderRadius: 10),
-            ShimmerBox(width: screenWidth * 0.5, height: 20, borderRadius: 4),
-            ShimmerBox(width: 40, height: 40, borderRadius: 10),
+            ShimmerBox(
+              width: isVerySmallScreen ? 35 : 40,
+              height: isVerySmallScreen ? 35 : 40,
+              borderRadius: 10,
+            ),
+            ShimmerBox(
+              width: screenWidth * 0.5,
+              height: isVerySmallScreen ? 18 : 20,
+              borderRadius: 4,
+            ),
+            ShimmerBox(
+              width: isVerySmallScreen ? 35 : 40,
+              height: isVerySmallScreen ? 35 : 40,
+              borderRadius: 10,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildErrorState(String message) {
+  Widget _buildErrorState(String message, double screenWidth) {
+    final bodyFontSize = (screenWidth * 0.034).clamp(11.0, 15.0);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -445,7 +493,7 @@ class _JadwalPageState extends State<JadwalPage> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black54),
+              style: TextStyle(color: Colors.black54, fontSize: bodyFontSize),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -472,7 +520,9 @@ class _JadwalPageState extends State<JadwalPage> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(double screenWidth) {
+    final bodyFontSize = (screenWidth * 0.034).clamp(11.0, 15.0);
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -485,7 +535,10 @@ class _JadwalPageState extends State<JadwalPage> {
           const SizedBox(height: 16),
           Text(
             'Belum ada jadwal untuk bulan ini',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: bodyFontSize,
+            ),
           ),
         ],
       ),
@@ -498,6 +551,10 @@ class _JadwalPageState extends State<JadwalPage> {
     double screenHeight,
     double padding,
   ) {
+    final titleFontSize = (screenWidth * 0.048).clamp(16.0, 22.0);
+    final iconSize = (screenWidth * 0.1).clamp(40.0, 48.0);
+    final iconInnerSize = (screenWidth * 0.045).clamp(18.0, 22.0);
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: padding,
@@ -509,15 +566,15 @@ class _JadwalPageState extends State<JadwalPage> {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: screenWidth * 0.1,
-              height: screenWidth * 0.1,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.arrow_back_ios_new,
-                size: screenWidth * 0.045,
+                size: iconInnerSize,
                 color: Colors.black87,
               ),
             ),
@@ -526,20 +583,24 @@ class _JadwalPageState extends State<JadwalPage> {
           Text(
             "Jadwal Shift",
             style: TextStyle(
-              fontSize: screenWidth * 0.048,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
               letterSpacing: 0.5,
             ),
           ),
           const Spacer(),
-          SizedBox(width: screenWidth * 0.1),
+          SizedBox(width: iconSize),
         ],
       ),
     );
   }
 
-  Widget _buildMonthNavigation(double screenWidth) {
+  Widget _buildMonthNavigation(double screenWidth, bool isVerySmallScreen) {
+    final navButtonSize = isVerySmallScreen ? 35.0 : 40.0;
+    final navIconSize = isVerySmallScreen ? 24.0 : 28.0;
+    final monthFontSize = (screenWidth * 0.038).clamp(14.0, 16.0);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -551,15 +612,18 @@ class _JadwalPageState extends State<JadwalPage> {
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: isVerySmallScreen ? 10 : 12,
+        vertical: isVerySmallScreen ? 8 : 10,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
             onTap: _canGoPrevious ? _previousMonth : null,
             child: Container(
-              width: 40,
-              height: 40,
+              width: navButtonSize,
+              height: navButtonSize,
               decoration: BoxDecoration(
                 color: _canGoPrevious
                     ? AppColors.primary.withOpacity(0.1)
@@ -571,7 +635,7 @@ class _JadwalPageState extends State<JadwalPage> {
                 color: _canGoPrevious
                     ? AppColors.primary
                     : Colors.grey.shade400,
-                size: 28,
+                size: navIconSize,
               ),
             ),
           ),
@@ -579,8 +643,8 @@ class _JadwalPageState extends State<JadwalPage> {
             child: Text(
               _monthDisplay,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
+              style: TextStyle(
+                fontSize: monthFontSize,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
                 letterSpacing: 0.3,
@@ -590,8 +654,8 @@ class _JadwalPageState extends State<JadwalPage> {
           GestureDetector(
             onTap: _canGoNext ? _nextMonth : null,
             child: Container(
-              width: 40,
-              height: 40,
+              width: navButtonSize,
+              height: navButtonSize,
               decoration: BoxDecoration(
                 color: _canGoNext
                     ? AppColors.primary.withOpacity(0.1)
@@ -601,7 +665,7 @@ class _JadwalPageState extends State<JadwalPage> {
               child: Icon(
                 Icons.chevron_right,
                 color: _canGoNext ? AppColors.primary : Colors.grey.shade400,
-                size: 28,
+                size: navIconSize,
               ),
             ),
           ),
@@ -610,14 +674,35 @@ class _JadwalPageState extends State<JadwalPage> {
     );
   }
 
-  Widget _buildJadwalCard(jadwal) {
+  Widget _buildJadwalCard(jadwal, double screenWidth, bool isVerySmallScreen) {
     final isToday =
         jadwal.tanggal == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    // Debug print untuk melihat data
+    debugPrint('🔍 Jadwal Data:');
+    debugPrint('   Tanggal: ${jadwal.tanggal}');
+    debugPrint('   Shift: ${jadwal.shiftCode}');
+    debugPrint('   Waktu Mulai: ${jadwal.waktuMulai}');
+    debugPrint('   Waktu Selesai: ${jadwal.waktuSelesai}');
+    debugPrint('   Is Libur: ${jadwal.isLibur}');
+
+    // Responsive font sizes
+    final dateBoxWidth = isVerySmallScreen ? 50.0 : 60.0;
+    final dateFontSize = isVerySmallScreen ? 20.0 : 24.0;
+    final monthFontSize = isVerySmallScreen ? 9.0 : 10.0;
+    final dayFontSize = (screenWidth * 0.036).clamp(13.0, 15.0);
+    final todayBadgeFontSize = isVerySmallScreen ? 9.0 : 10.0;
+    final shiftFontSize = (screenWidth * 0.03).clamp(11.0, 12.0);
+    final timeFontSize = (screenWidth * 0.032).clamp(11.0, 13.0);
+    final infoFontSize = isVerySmallScreen ? 10.0 : 11.0;
+    final iconSize = isVerySmallScreen ? 14.0 : 15.0;
+    final infoIconSize = isVerySmallScreen ? 16.0 : 18.0;
+    final starSize = isVerySmallScreen ? 12.0 : 14.0;
 
     return GestureDetector(
       onTap: jadwal.isDitukar ? () => _showTukarShiftInfo(jadwal) : null,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: EdgeInsets.only(bottom: isVerySmallScreen ? 10 : 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -639,7 +724,7 @@ class _JadwalPageState extends State<JadwalPage> {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(isVerySmallScreen ? 10 : 14),
           child: Row(
             children: [
               // Date Box with Star
@@ -647,10 +732,10 @@ class _JadwalPageState extends State<JadwalPage> {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 60,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 8,
+                    width: dateBoxWidth,
+                    padding: EdgeInsets.symmetric(
+                      vertical: isVerySmallScreen ? 10 : 12,
+                      horizontal: isVerySmallScreen ? 6 : 8,
                     ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -685,18 +770,18 @@ class _JadwalPageState extends State<JadwalPage> {
                       children: [
                         Text(
                           jadwal.tanggalFormat,
-                          style: const TextStyle(
-                            fontSize: 24,
+                          style: TextStyle(
+                            fontSize: dateFontSize,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             height: 1,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: isVerySmallScreen ? 3 : 4),
                         Text(
                           jadwal.bulanFormat.toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 10,
+                          style: TextStyle(
+                            fontSize: monthFontSize,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
                             letterSpacing: 0.5,
@@ -711,7 +796,7 @@ class _JadwalPageState extends State<JadwalPage> {
                       top: -4,
                       right: -4,
                       child: Container(
-                        padding: const EdgeInsets.all(5),
+                        padding: EdgeInsets.all(isVerySmallScreen ? 4 : 5),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
@@ -728,17 +813,17 @@ class _JadwalPageState extends State<JadwalPage> {
                             ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.star,
                           color: Colors.white,
-                          size: 14,
+                          size: starSize,
                         ),
                       ),
                     ),
                 ],
               ),
 
-              const SizedBox(width: 14),
+              SizedBox(width: isVerySmallScreen ? 10 : 14),
 
               // Details
               Expanded(
@@ -747,21 +832,24 @@ class _JadwalPageState extends State<JadwalPage> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          jadwal.hari,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade800,
-                            letterSpacing: 0.2,
+                        Flexible(
+                          child: Text(
+                            jadwal.hari,
+                            style: TextStyle(
+                              fontSize: dayFontSize,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade800,
+                              letterSpacing: 0.2,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (isToday) ...[
-                          const SizedBox(width: 8),
+                          SizedBox(width: isVerySmallScreen ? 6 : 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isVerySmallScreen ? 6 : 8,
+                              vertical: isVerySmallScreen ? 2 : 3,
                             ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
@@ -776,11 +864,11 @@ class _JadwalPageState extends State<JadwalPage> {
                                 ),
                               ],
                             ),
-                            child: const Text(
+                            child: Text(
                               'Hari Ini',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
+                                fontSize: todayBadgeFontSize,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
                               ),
@@ -790,13 +878,13 @@ class _JadwalPageState extends State<JadwalPage> {
                       ],
                     ),
 
-                    const SizedBox(height: 8),
+                    SizedBox(height: isVerySmallScreen ? 6 : 8),
 
                     if (jadwal.isLibur)
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isVerySmallScreen ? 10 : 12,
+                          vertical: isVerySmallScreen ? 5 : 6,
                         ),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -813,16 +901,16 @@ class _JadwalPageState extends State<JadwalPage> {
                           children: [
                             Icon(
                               Icons.wb_sunny,
-                              size: 16,
+                              size: iconSize,
                               color: Colors.green.shade700,
                             ),
-                            const SizedBox(width: 6),
+                            SizedBox(width: isVerySmallScreen ? 4 : 6),
                             Text(
                               'Hari Libur',
                               style: TextStyle(
                                 color: Colors.green.shade700,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                                fontSize: timeFontSize,
                                 letterSpacing: 0.2,
                               ),
                             ),
@@ -833,9 +921,9 @@ class _JadwalPageState extends State<JadwalPage> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isVerySmallScreen ? 8 : 10,
+                              vertical: isVerySmallScreen ? 3 : 4,
                             ),
                             decoration: BoxDecoration(
                               color: jadwal.isDitukar
@@ -850,16 +938,16 @@ class _JadwalPageState extends State<JadwalPage> {
                                     ? Colors.orange.shade700
                                     : AppColors.primary,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                                fontSize: shiftFontSize,
                               ),
                             ),
                           ),
                           if (jadwal.isDitukar) ...[
-                            const SizedBox(width: 8),
+                            SizedBox(width: isVerySmallScreen ? 6 : 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isVerySmallScreen ? 6 : 8,
+                                vertical: isVerySmallScreen ? 2 : 3,
                               ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
@@ -878,15 +966,15 @@ class _JadwalPageState extends State<JadwalPage> {
                                 children: [
                                   Icon(
                                     Icons.swap_horiz,
-                                    size: 12,
+                                    size: isVerySmallScreen ? 11 : 12,
                                     color: Colors.amber.shade700,
                                   ),
-                                  const SizedBox(width: 4),
+                                  SizedBox(width: isVerySmallScreen ? 3 : 4),
                                   Text(
                                     'Ditukar',
                                     style: TextStyle(
                                       color: Colors.amber.shade700,
-                                      fontSize: 10,
+                                      fontSize: todayBadgeFontSize,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -896,41 +984,44 @@ class _JadwalPageState extends State<JadwalPage> {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: isVerySmallScreen ? 6 : 8),
                       Row(
                         children: [
                           Icon(
                             Icons.access_time,
-                            size: 15,
+                            size: iconSize,
                             color: Colors.grey.shade600,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${jadwal.waktuMulai ?? '-'} - ${jadwal.waktuSelesai ?? '-'}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade700,
-                              fontWeight: FontWeight.w500,
+                          SizedBox(width: isVerySmallScreen ? 4 : 6),
+                          Flexible(
+                            child: Text(
+                              '${jadwal.waktuMulai ?? '-'} - ${jadwal.waktuSelesai ?? '-'}',
+                              style: TextStyle(
+                                fontSize: timeFontSize,
+                                color: Colors.grey.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
                       if (jadwal.isDitukar &&
                           jadwal.tukarShiftInfo != null) ...[
-                        const SizedBox(height: 6),
+                        SizedBox(height: isVerySmallScreen ? 4 : 6),
                         Row(
                           children: [
                             Icon(
                               Icons.person_outline,
-                              size: 14,
+                              size: iconSize - 1,
                               color: Colors.amber.shade700,
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: isVerySmallScreen ? 3 : 4),
                             Expanded(
                               child: Text(
                                 'dengan ${jadwal.tukarShiftInfo!.dengan}',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: infoFontSize,
                                   color: Colors.amber.shade700,
                                   fontStyle: FontStyle.italic,
                                   fontWeight: FontWeight.w500,
@@ -950,7 +1041,7 @@ class _JadwalPageState extends State<JadwalPage> {
               // Info Icon
               if (jadwal.isDitukar)
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: EdgeInsets.all(isVerySmallScreen ? 5 : 6),
                   decoration: BoxDecoration(
                     color: Colors.amber.shade50,
                     shape: BoxShape.circle,
@@ -958,7 +1049,7 @@ class _JadwalPageState extends State<JadwalPage> {
                   ),
                   child: Icon(
                     Icons.info_outline,
-                    size: 18,
+                    size: infoIconSize,
                     color: Colors.amber.shade700,
                   ),
                 ),

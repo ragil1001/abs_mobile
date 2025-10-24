@@ -4,7 +4,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/presensi_provider.dart';
-import '../data/services/api_service.dart';
+import '../data/services/dio_service.dart';
 import '../data/services/fake_gps_detector_service.dart';
 import '../core/config/app_config.dart';
 
@@ -25,26 +25,52 @@ class CustomBottomNavBar extends StatefulWidget {
 }
 
 class _CustomBottomNavBarState extends State<CustomBottomNavBar>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _controller;
-  final _fakeGpsDetector = FakeGpsDetectorService();
+  FakeGpsDetectorService? _fakeGpsDetector;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
+
+    // Initialize detector
+    _initializeDetector();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Reinitialize detector ketika app resumed
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🔄 App resumed - reinitializing FakeGpsDetector');
+      _initializeDetector();
+    }
+  }
+
+  void _initializeDetector() {
+    // Create new instance untuk clear cache
+    _fakeGpsDetector = FakeGpsDetectorService();
+    debugPrint('✅ FakeGpsDetector initialized');
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }
 
   Future<void> _handlePresensiTap() async {
+    // Reinitialize detector untuk memastikan cache terbaru
+    _initializeDetector();
+
     // STEP 1: Cek developer mode terlebih dahulu (PRIORITY TERTINGGI)
     showDialog(
       context: context,
@@ -66,7 +92,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
       ),
     );
 
-    final isDeveloperMode = await _fakeGpsDetector.quickDeveloperModeCheck();
+    final isDeveloperMode = await _fakeGpsDetector!.quickDeveloperModeCheck();
 
     if (mounted) Navigator.pop(context);
 
@@ -119,8 +145,8 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
         throw ApiException('Token tidak ditemukan');
       }
 
-      final apiService = ApiService();
-      final response = await apiService.get(
+      final dioService = DioService();
+      final response = await dioService.get(
         '${AppConfig.mobileApiPrefix}/presensi/cek',
       );
 
@@ -130,7 +156,6 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
         final data = response['data'];
 
         final bisaMasuk = data['bisa_presensi_masuk'] ?? false;
-        final bisaPulang = data['bisa_presensi_pulang'] ?? false;
         final sudahMasuk = data['sudah_presensi_masuk'] ?? false;
         final sudahPulang = data['sudah_presensi_pulang'] ?? false;
 

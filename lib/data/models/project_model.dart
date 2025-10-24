@@ -93,8 +93,8 @@ class Project {
         shifts: parsedShifts,
       );
     } catch (e) {
-      print('Error parsing Project: $e');
-      print('JSON data: $json');
+      // print('Error parsing Project: $e');
+      // print('JSON data: $json');
       rethrow;
     }
   }

@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import '../data/models/karyawan_model.dart';
 import '../data/repositories/auth_repository.dart';
-import '../data/services/api_service.dart';
+import '../data/services/dio_service.dart';
 import '../data/services/storage_service.dart';
+import '../data/services/cache_manager_service.dart';
 import '../data/services/firebase_messaging_service.dart';
 
 enum AuthState { initial, loading, authenticated, unauthenticated, error }
@@ -14,54 +15,63 @@ class AuthProvider with ChangeNotifier {
   AuthState _state = AuthState.initial;
   Karyawan? _currentUser;
   String? _errorMessage;
+  String? _errorType;
 
   AuthState get state => _state;
   Karyawan? get currentUser => _currentUser;
   String? get errorMessage => _errorMessage;
+  String? get errorType => _errorType;
   bool get isAuthenticated => _state == AuthState.authenticated;
   bool get isLoading => _state == AuthState.loading;
 
   String? _token;
-
-  // Add this getter
   String? get token => _token;
 
-  /// Initialize auth state
+  /// Initialize auth state - NO SESSION EXPIRY
   Future<void> initAuth() async {
     try {
-      // Load token dari storage
       _token = await _storageService.getToken();
-
       final isLoggedIn = await _authRepository.isLoggedIn();
 
       if (isLoggedIn) {
         _state = AuthState.loading;
         notifyListeners();
 
-        // Try to get current user
         try {
+          // Verify token with server
           _currentUser = await _authRepository.getCurrentUser();
           _state = AuthState.authenticated;
+
+          debugPrint('✅ Auth initialized - user logged in');
+          debugPrint('👤 User: ${_currentUser?.nama}');
+
+          // Send FCM token to backend
+          await _sendFcmTokenToBackend();
         } catch (e) {
-          // Token might be expired
+          debugPrint('❌ Token verification failed: $e');
           _state = AuthState.unauthenticated;
           _currentUser = null;
           _token = null;
+
+          // Clear invalid session
+          await _authRepository.clearSession();
         }
       } else {
+        debugPrint('ℹ️ No saved session found');
         _state = AuthState.unauthenticated;
         _token = null;
       }
 
       notifyListeners();
     } catch (e) {
+      debugPrint('❌ Auth init error: $e');
       _state = AuthState.unauthenticated;
       _token = null;
       notifyListeners();
     }
   }
 
-  /// Login
+  /// Login - Creates unlimited session with detailed error handling
   Future<bool> login(
     String username,
     String password, {
@@ -70,15 +80,15 @@ class AuthProvider with ChangeNotifier {
     try {
       _state = AuthState.loading;
       _errorMessage = null;
+      _errorType = null;
       notifyListeners();
+
+      debugPrint('🔐 Login attempt for: $username');
 
       final authResponse = await _authRepository.login(username, password);
       _currentUser = authResponse.karyawan;
-
-      // Simpan token dari response
       _token = await _storageService.getToken();
 
-      // Save remember me preference
       if (rememberMe) {
         await _authRepository.saveRememberMe(username, true);
       } else {
@@ -88,18 +98,65 @@ class AuthProvider with ChangeNotifier {
       _state = AuthState.authenticated;
       notifyListeners();
 
-      // Send FCM token ke backend setelah login berhasil
+      debugPrint('✅ Login successful');
+      debugPrint('👤 User: ${_currentUser?.nama}');
+
+      // Send FCM token to backend
       await _sendFcmTokenToBackend();
 
       return true;
     } on ApiException catch (e) {
+      debugPrint('❌ Login failed: ${e.message}');
+      debugPrint('❌ Error type: ${e.errorType}');
+      debugPrint('❌ Status code: ${e.statusCode}');
+
       _state = AuthState.error;
       _errorMessage = e.message;
+      _errorType = e.errorType;
+
+      // Beri pesan spesifik untuk error login
+      if (e.statusCode == 422 || e.statusCode == 401) {
+        // Validation error atau unauthorized
+        if (e.message.toLowerCase().contains('username') ||
+            e.message.toLowerCase().contains('password') ||
+            e.message.toLowerCase().contains('salah')) {
+          _errorMessage = e.message;
+        } else {
+          _errorMessage = 'Username atau password yang Anda masukkan salah.';
+        }
+      } else if (e.errorType == 'timeout') {
+        _errorMessage =
+            'Koneksi timeout. Periksa koneksi internet Anda dan coba lagi.';
+      } else if (e.errorType == 'connection_error') {
+        _errorMessage =
+            'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      } else if (e.errorType == 'server_error') {
+        _errorMessage =
+            'Server sedang mengalami gangguan. Silakan coba lagi nanti.';
+      } else if (e.message.isEmpty) {
+        _errorMessage = 'Terjadi kesalahan saat login. Silakan coba lagi.';
+      }
+
       notifyListeners();
       return false;
     } catch (e) {
+      debugPrint('❌ Login error: $e');
       _state = AuthState.error;
-      _errorMessage = 'Terjadi kesalahan: ${e.toString()}';
+      _errorType = 'unknown';
+
+      // Handle berbagai jenis error
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Connection') ||
+          e.toString().contains('Network')) {
+        _errorMessage =
+            'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      } else if (e.toString().contains('TimeoutException') ||
+          e.toString().contains('timeout')) {
+        _errorMessage = 'Koneksi timeout. Silakan coba lagi.';
+      } else {
+        _errorMessage = 'Terjadi kesalahan tidak terduga. Silakan coba lagi.';
+      }
+
       notifyListeners();
       return false;
     }
@@ -109,67 +166,96 @@ class AuthProvider with ChangeNotifier {
   Future<void> _sendFcmTokenToBackend() async {
     try {
       final fcmToken = await FirebaseMessagingService.getToken();
+
       if (fcmToken != null && _token != null) {
+        debugPrint('📱 Sending FCM token to backend...');
+        debugPrint('   Token: ${fcmToken.substring(0, 30)}...');
+
         await _authRepository.storeFcmToken(fcmToken);
-        print('FCM token sent to backend successfully');
+        debugPrint('✅ FCM token sent to backend');
+      } else {
+        debugPrint('⚠️ FCM token or auth token is null');
       }
     } catch (e) {
-      print('Error sending FCM token to backend: $e');
-      // Don't throw error, login should still succeed
+      debugPrint('❌ Error sending FCM token: $e');
+      // Non-critical error - continue anyway
     }
   }
 
-  /// Logout - Optimized for instant UI feedback
+  /// Logout - Manual only, no auto logout
   Future<void> logout() async {
     try {
-      // Get FCM token sebelum logout
-      final fcmToken = await FirebaseMessagingService.getToken();
+      debugPrint('🚪 Starting logout process...');
 
-      // Clear local state immediately for instant UI update
+      final karyawanId = _currentUser?.id;
+      final userName = _currentUser?.nama;
+      debugPrint('👤 Logging out user: $userName (ID: $karyawanId)');
+
+      // Get FCM token for verification
+      final fcmToken = await FirebaseMessagingService.getToken();
+      if (fcmToken != null) {
+        debugPrint('✅ FCM Token: ${fcmToken.substring(0, 30)}...');
+      } else {
+        debugPrint('⚠️ FCM Token is NULL!');
+      }
+
+      // Call backend logout (which deletes FCM tokens)
+      debugPrint('🌐 Calling backend logout API...');
+      await _authRepository.logout();
+      debugPrint('✅ Backend logout API completed (FCM tokens deleted)');
+
+      // Delete local FCM token
+      debugPrint('🗑️ Deleting local FCM token...');
+      try {
+        await FirebaseMessagingService.deleteToken();
+        debugPrint('✅ Local FCM token deleted');
+      } catch (e) {
+        debugPrint('❌ Error deleting local FCM: $e');
+      }
+
+      // Clear cache
+      debugPrint('🗑️ Clearing cache...');
+      try {
+        await CacheManagerService.clearAllCache();
+        debugPrint('✅ Cache cleared');
+      } catch (e) {
+        debugPrint('❌ Cache clear error: $e');
+      }
+
+      debugPrint('✅ Logout process completed successfully');
+    } catch (e) {
+      debugPrint('❌ Logout process error: $e');
+      // Continue logout even if errors occur
+    } finally {
+      // Always clear local state
       _currentUser = null;
       _token = null;
       _state = AuthState.unauthenticated;
       notifyListeners();
 
-      // Delete FCM token dari backend
-      if (fcmToken != null) {
-        try {
-          await _authRepository.deleteFcmToken(fcmToken);
-        } catch (e) {
-          print('Error deleting FCM token from backend: $e');
-        }
-      }
-
-      // Delete local FCM token
-      try {
-        await FirebaseMessagingService.deleteToken();
-      } catch (e) {
-        print('Error deleting local FCM token: $e');
-      }
-
-      // Then call API in background (won't block UI)
-      await _authRepository.logout();
-    } catch (e) {
-      // Already cleared local state, so just log the error
-      print('Logout error (already cleared locally): $e');
+      debugPrint('✅ Local session cleared');
     }
   }
 
   /// Refresh current user data
   Future<void> refreshUser() async {
     try {
+      debugPrint('🔄 Refreshing user data...');
       _currentUser = await _authRepository.getCurrentUser();
       notifyListeners();
+      debugPrint('✅ User data refreshed');
     } catch (e) {
-      // If refresh fails, might need to re-login
+      debugPrint('❌ User refresh failed: $e');
+      // Token might be invalid - logout
       _state = AuthState.unauthenticated;
       _currentUser = null;
       _token = null;
+      await _authRepository.clearSession();
       notifyListeners();
     }
   }
 
-  /// Change password
+  /// Change password with detailed error handling
   Future<bool> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -177,6 +263,9 @@ class AuthProvider with ChangeNotifier {
   }) async {
     try {
       _errorMessage = null;
+      _errorType = null;
+
+      debugPrint('🔐 Changing password...');
 
       await _authRepository.changePassword(
         currentPassword: currentPassword,
@@ -184,7 +273,9 @@ class AuthProvider with ChangeNotifier {
         confirmPassword: confirmPassword,
       );
 
-      // After password change, user needs to login again
+      debugPrint('✅ Password changed successfully');
+
+      // Clear session after password change
       _currentUser = null;
       _token = null;
       _state = AuthState.unauthenticated;
@@ -192,29 +283,72 @@ class AuthProvider with ChangeNotifier {
 
       return true;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      debugPrint('❌ Password change failed: ${e.message}');
+
+      _errorType = e.errorType;
+
+      // Berikan pesan error yang spesifik
+      if (e.message.toLowerCase().contains('password lama') ||
+          e.message.toLowerCase().contains('current password')) {
+        _errorMessage = 'Password lama tidak sesuai. Silakan coba lagi.';
+      } else if (e.message.toLowerCase().contains('konfirmasi')) {
+        _errorMessage = 'Konfirmasi password tidak sama dengan password baru.';
+      } else if (e.message.toLowerCase().contains('minimal')) {
+        _errorMessage = 'Password baru minimal 6 karakter.';
+      } else if (e.errorType == 'timeout') {
+        _errorMessage = 'Koneksi timeout. Silakan coba lagi.';
+      } else if (e.errorType == 'connection_error') {
+        _errorMessage =
+            'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      } else {
+        _errorMessage = e.message;
+      }
+
       notifyListeners();
       return false;
     } catch (e) {
-      _errorMessage = 'Terjadi kesalahan: ${e.toString()}';
+      debugPrint('❌ Password change error: $e');
+      _errorType = 'unknown';
+
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Connection')) {
+        _errorMessage =
+            'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      } else if (e.toString().contains('timeout')) {
+        _errorMessage = 'Koneksi timeout. Silakan coba lagi.';
+      } else {
+        _errorMessage = 'Terjadi kesalahan tidak terduga. Silakan coba lagi.';
+      }
+
       notifyListeners();
       return false;
     }
   }
 
-  /// Get remembered username
+  /// Check if token is still valid (periodic check)
+  Future<bool> isTokenValid() async {
+    if (_token == null) return false;
+
+    try {
+      await _authRepository.getCurrentUser();
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ Token validation failed: $e');
+      return false;
+    }
+  }
+
   Future<String?> getRememberedUsername() async {
     return await _authRepository.getRememberedUsername();
   }
 
-  /// Check if should remember
   Future<bool> shouldRemember() async {
     return await _authRepository.shouldRemember();
   }
 
-  /// Clear error
   void clearError() {
     _errorMessage = null;
+    _errorType = null;
     notifyListeners();
   }
 }

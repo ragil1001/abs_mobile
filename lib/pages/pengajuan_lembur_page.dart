@@ -1,23 +1,22 @@
-// lib/pages/pengajuan_izin_page.dart
+// lib/pages/pengajuan_lembur_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../providers/izin_provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/lembur_provider.dart';
 import '../core/constants/app_colors.dart';
 import '../components/custom_snackbar.dart';
 import '../components/shimmer_loading.dart';
-import 'form_pengajuan_izin_page.dart';
-import 'detail_izin_page.dart';
+import 'form_pengajuan_lembur_page.dart';
+import 'detail_lembur_page.dart';
 
-class PengajuanIzinPage extends StatefulWidget {
-  const PengajuanIzinPage({super.key});
+class PengajuanLemburPage extends StatefulWidget {
+  const PengajuanLemburPage({super.key});
 
   @override
-  State<PengajuanIzinPage> createState() => _PengajuanIzinPageState();
+  State<PengajuanLemburPage> createState() => _PengajuanLemburPageState();
 }
 
-class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
+class _PengajuanLemburPageState extends State<PengajuanLemburPage> {
   String _filterTab = "Semua";
   DateTime? _lastRefreshTime;
 
@@ -38,30 +37,23 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
     if (!mounted) return;
     _lastRefreshTime = DateTime.now();
 
-    final izinProvider = Provider.of<IzinProvider>(context, listen: false);
-    await izinProvider.loadPengajuan();
+    final lemburProvider = Provider.of<LemburProvider>(context, listen: false);
+    await lemburProvider.loadPengajuan();
   }
 
   Future<void> _navigateToForm() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const FormPengajuanIzinPage()),
+      MaterialPageRoute(builder: (_) => const FormPengajuanLemburPage()),
     );
 
     if (result == true && mounted) {
       _lastRefreshTime = null;
       _loadData();
-
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      try {
-        await authProvider.refreshUser();
-      } catch (e) {
-        // Handle error silently
-      }
     }
   }
 
-  void _showMenu(BuildContext context, izin, Offset position) async {
+  void _showMenu(BuildContext context, lembur, Offset position) async {
     final result = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -80,7 +72,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        if (izin.canCancel)
+        if (lembur.canCancel)
           const PopupMenuItem(
             value: "cancel",
             child: ListTile(
@@ -89,7 +81,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        if (izin.canDelete)
+        if (lembur.canDelete)
           const PopupMenuItem(
             value: "delete",
             child: ListTile(
@@ -106,15 +98,17 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
     if (result == "detail") {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => DetailIzinPage(izinId: izin.id)),
+        MaterialPageRoute(
+          builder: (_) => DetailLemburPage(lemburId: lembur.id),
+        ),
       );
       if (mounted && _shouldRefresh) {
         _loadData();
       }
     } else if (result == "cancel") {
-      _confirmCancel(izin.id);
+      _confirmCancel(lembur.id);
     } else if (result == "delete") {
-      _confirmDelete(izin.id);
+      _confirmDelete(lembur.id);
     }
   }
 
@@ -128,7 +122,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
           ),
           title: const Text("Konfirmasi"),
           content: const Text(
-            "Apakah Anda yakin ingin membatalkan pengajuan izin ini?",
+            "Apakah Anda yakin ingin membatalkan pengajuan lembur ini?",
           ),
           actions: [
             TextButton(
@@ -140,11 +134,11 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                 Navigator.pop(dialogContext);
                 if (!mounted) return;
 
-                final izinProvider = Provider.of<IzinProvider>(
+                final lemburProvider = Provider.of<LemburProvider>(
                   context,
                   listen: false,
                 );
-                final success = await izinProvider.batalkanPengajuan(id);
+                final success = await lemburProvider.batalkanPengajuan(id);
 
                 if (!mounted) return;
 
@@ -156,7 +150,8 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                 } else {
                   CustomSnackbar.showError(
                     context,
-                    izinProvider.errorMessage ?? 'Gagal membatalkan pengajuan',
+                    lemburProvider.errorMessage ??
+                        'Gagal membatalkan pengajuan',
                   );
                 }
               },
@@ -185,7 +180,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
           ),
           title: const Text("Konfirmasi"),
           content: const Text(
-            "Apakah Anda yakin ingin menghapus pengajuan izin ini?",
+            "Apakah Anda yakin ingin menghapus pengajuan lembur ini?",
           ),
           actions: [
             TextButton(
@@ -197,11 +192,11 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                 Navigator.pop(dialogContext);
                 if (!mounted) return;
 
-                final izinProvider = Provider.of<IzinProvider>(
+                final lemburProvider = Provider.of<LemburProvider>(
                   context,
                   listen: false,
                 );
-                final success = await izinProvider.hapusPengajuan(id);
+                final success = await lemburProvider.hapusPengajuan(id);
 
                 if (!mounted) return;
 
@@ -213,7 +208,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                 } else {
                   CustomSnackbar.showError(
                     context,
-                    izinProvider.errorMessage ?? 'Gagal menghapus pengajuan',
+                    lemburProvider.errorMessage ?? 'Gagal menghapus pengajuan',
                   );
                 }
               },
@@ -236,33 +231,24 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-
-    // Responsive sizing
-    final bool isVerySmallScreen = screenWidth < 340;
-    final padding = screenWidth * 0.05;
+    final padding = screenWidth * 0.06;
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 254, 253, 253),
       body: SafeArea(
-        child: Consumer<IzinProvider>(
-          builder: (context, izinProvider, child) {
-            if (izinProvider.isLoading) {
+        child: Consumer<LemburProvider>(
+          builder: (context, lemburProvider, child) {
+            if (lemburProvider.isLoading) {
               return Column(
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
-                  _buildTabBar(izinProvider, screenWidth, isVerySmallScreen),
-                  Expanded(
-                    child: _buildShimmerLayout(
-                      screenWidth,
-                      padding,
-                      isVerySmallScreen,
-                    ),
-                  ),
+                  _buildTabBar(lemburProvider, screenWidth),
+                  Expanded(child: _buildShimmerLayout(screenWidth, padding)),
                 ],
               );
             }
 
-            if (izinProvider.state == IzinState.error) {
+            if (lemburProvider.state == LemburState.error) {
               return Column(
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
@@ -273,25 +259,16 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                         children: [
                           Icon(
                             Icons.error_outline,
-                            size: isVerySmallScreen ? 48 : 64,
+                            size: 64,
                             color: AppColors.error.withOpacity(0.5),
                           ),
-                          SizedBox(height: isVerySmallScreen ? 12 : 16),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: padding),
-                            child: Text(
-                              izinProvider.errorMessage ?? 'Terjadi kesalahan',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: (screenWidth * 0.035).clamp(
-                                  12.0,
-                                  15.0,
-                                ),
-                              ),
-                            ),
+                          const SizedBox(height: 16),
+                          Text(
+                            lemburProvider.errorMessage ?? 'Terjadi kesalahan',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.grey),
                           ),
-                          SizedBox(height: isVerySmallScreen ? 12 : 16),
+                          const SizedBox(height: 16),
                           ElevatedButton(
                             onPressed: () {
                               _lastRefreshTime = null;
@@ -314,12 +291,12 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
               );
             }
 
-            final filteredList = _getFilteredList(izinProvider);
+            final filteredList = _getFilteredList(lemburProvider);
 
             return Column(
               children: [
                 _buildHeader(context, screenWidth, screenHeight, padding),
-                _buildTabBar(izinProvider, screenWidth, isVerySmallScreen),
+                _buildTabBar(lemburProvider, screenWidth),
                 const Divider(height: 1),
                 Expanded(
                   child: filteredList.isEmpty
@@ -329,36 +306,22 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                             children: [
                               Icon(
                                 Icons.inbox_outlined,
-                                size: isVerySmallScreen ? 48 : 64,
+                                size: 64,
                                 color: Colors.grey.shade300,
                               ),
-                              SizedBox(height: isVerySmallScreen ? 12 : 16),
+                              const SizedBox(height: 16),
                               Text(
-                                'Belum ada pengajuan izin',
+                                'Belum ada pengajuan lembur',
                                 style: TextStyle(
                                   color: Colors.grey.shade600,
-                                  fontSize: (screenWidth * 0.04).clamp(
-                                    14.0,
-                                    16.0,
-                                  ),
+                                  fontSize: 16,
                                 ),
                               ),
-                              SizedBox(height: isVerySmallScreen ? 6 : 8),
+                              const SizedBox(height: 8),
                               TextButton.icon(
                                 onPressed: _navigateToForm,
-                                icon: Icon(
-                                  Icons.add,
-                                  size: (screenWidth * 0.045).clamp(16.0, 20.0),
-                                ),
-                                label: Text(
-                                  'Ajukan Izin',
-                                  style: TextStyle(
-                                    fontSize: (screenWidth * 0.035).clamp(
-                                      13.0,
-                                      15.0,
-                                    ),
-                                  ),
-                                ),
+                                icon: const Icon(Icons.add),
+                                label: const Text('Ajukan Lembur'),
                               ),
                             ],
                           ),
@@ -369,15 +332,11 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                             await _loadData();
                           },
                           child: ListView.builder(
-                            padding: EdgeInsets.all(padding),
+                            padding: const EdgeInsets.all(16),
                             itemCount: filteredList.length,
                             itemBuilder: (context, index) {
-                              final izin = filteredList[index];
-                              return _buildIzinCard(
-                                izin,
-                                screenWidth,
-                                isVerySmallScreen,
-                              );
+                              final lembur = filteredList[index];
+                              return _buildLemburCard(lembur);
                             },
                           ),
                         ),
@@ -390,23 +349,19 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
     );
   }
 
-  Widget _buildShimmerLayout(
-    double screenWidth,
-    double padding,
-    bool isVerySmallScreen,
-  ) {
+  Widget _buildShimmerLayout(double screenWidth, double padding) {
     return ShimmerLoading(
       child: ListView.builder(
         padding: EdgeInsets.all(padding),
         itemCount: 5,
         itemBuilder: (context, index) {
           return Container(
-            margin: EdgeInsets.only(bottom: isVerySmallScreen ? 10 : 12),
+            margin: const EdgeInsets.only(bottom: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: EdgeInsets.all(isVerySmallScreen ? 10 : 12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     borderRadius: const BorderRadius.only(
@@ -416,16 +371,12 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                   ),
                   child: Row(
                     children: [
-                      ShimmerBox(
-                        width: isVerySmallScreen ? 50 : 60,
-                        height: isVerySmallScreen ? 18 : 20,
-                        borderRadius: 6,
-                      ),
+                      ShimmerBox(width: 60, height: 20, borderRadius: 6),
                       const SizedBox(width: 8),
                       Expanded(
                         child: ShimmerBox(
                           width: double.infinity,
-                          height: isVerySmallScreen ? 14 : 16,
+                          height: 16,
                           borderRadius: 4,
                         ),
                       ),
@@ -433,7 +384,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                   ),
                 ),
                 Container(
-                  padding: EdgeInsets.all(isVerySmallScreen ? 10 : 12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: const BorderRadius.only(
@@ -441,37 +392,19 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                       bottomRight: Radius.circular(16),
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ShimmerBox(
-                        width: isVerySmallScreen ? 50 : 60,
-                        height: isVerySmallScreen ? 65 : 80,
-                        borderRadius: 8,
+                        width: screenWidth * 0.4,
+                        height: 14,
+                        borderRadius: 4,
                       ),
-                      SizedBox(width: isVerySmallScreen ? 10 : 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ShimmerBox(
-                              width: screenWidth * 0.4,
-                              height: isVerySmallScreen ? 12 : 14,
-                              borderRadius: 4,
-                            ),
-                            SizedBox(height: isVerySmallScreen ? 6 : 8),
-                            ShimmerBox(
-                              width: screenWidth * 0.35,
-                              height: isVerySmallScreen ? 12 : 14,
-                              borderRadius: 4,
-                            ),
-                            SizedBox(height: isVerySmallScreen ? 10 : 12),
-                            ShimmerBox(
-                              width: screenWidth * 0.6,
-                              height: isVerySmallScreen ? 10 : 12,
-                              borderRadius: 4,
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 8),
+                      ShimmerBox(
+                        width: screenWidth * 0.6,
+                        height: 12,
+                        borderRadius: 4,
                       ),
                     ],
                   ),
@@ -490,10 +423,6 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
     double screenHeight,
     double padding,
   ) {
-    final bool isVerySmallScreen = screenWidth < 340;
-    final iconSize = (screenWidth * 0.1).clamp(36.0, 44.0);
-    final titleFontSize = (screenWidth * 0.045).clamp(16.0, 20.0);
-
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: padding,
@@ -505,46 +434,42 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: iconSize,
-              height: iconSize,
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(
-                  isVerySmallScreen ? 10 : 12,
-                ),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.arrow_back_ios_new,
-                size: iconSize * 0.45,
+                size: screenWidth * 0.045,
                 color: Colors.black87,
               ),
             ),
           ),
           const Spacer(),
           Text(
-            "Pengajuan Izin",
+            "Pengajuan Lembur",
             style: TextStyle(
-              fontSize: titleFontSize,
+              fontSize: screenWidth * 0.048,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
-              letterSpacing: 0.3,
+              letterSpacing: 0.5,
             ),
           ),
           const Spacer(),
           GestureDetector(
             onTap: _navigateToForm,
             child: Container(
-              width: iconSize,
-              height: iconSize,
+              width: screenWidth * 0.1,
+              height: screenWidth * 0.1,
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(
-                  isVerySmallScreen ? 10 : 12,
-                ),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.add,
-                size: iconSize * 0.5,
+                size: screenWidth * 0.05,
                 color: AppColors.primary,
               ),
             ),
@@ -554,39 +479,26 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
     );
   }
 
-  Widget _buildTabBar(
-    IzinProvider provider,
-    double screenWidth,
-    bool isVerySmallScreen,
-  ) {
-    final tabFontSize = (screenWidth * 0.03).clamp(10.0, 13.0);
-
+  Widget _buildTabBar(LemburProvider provider, double screenWidth) {
     return Container(
       color: Colors.white,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(
-          horizontal: isVerySmallScreen ? 8 : 12,
-          vertical: isVerySmallScreen ? 6 : 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            _buildTab("Semua", provider.izinList.length, tabFontSize),
-            _buildTab("Pengajuan", provider.pengajuanList.length, tabFontSize),
-            _buildTab("Disetujui", provider.disetujuiList.length, tabFontSize),
-            _buildTab("Ditolak", provider.ditolakList.length, tabFontSize),
-            _buildTab(
-              "Dibatalkan",
-              provider.dibatalkanList.length,
-              tabFontSize,
-            ),
+            _buildTab("Semua", provider.lemburList.length),
+            _buildTab("Pengajuan", provider.pengajuanList.length),
+            _buildTab("Disetujui", provider.disetujuiList.length),
+            _buildTab("Ditolak", provider.ditolakList.length),
+            _buildTab("Dibatalkan", provider.dibatalkanList.length),
           ],
         ),
       ),
     );
   }
 
-  List _getFilteredList(IzinProvider provider) {
+  List _getFilteredList(LemburProvider provider) {
     switch (_filterTab) {
       case "Pengajuan":
         return provider.pengajuanList;
@@ -597,14 +509,14 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
       case "Dibatalkan":
         return provider.dibatalkanList;
       default:
-        return provider.izinList;
+        return provider.lemburList;
     }
   }
 
-  Widget _buildTab(String label, int count, double fontSize) {
+  Widget _buildTab(String label, int count) {
     final selected = _filterTab == label;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ChoiceChip(
         label: Text('$label ($count)'),
         selected: selected,
@@ -616,16 +528,14 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
         labelStyle: TextStyle(
           color: selected ? Colors.white : Colors.black87,
           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          fontSize: fontSize,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
     );
   }
 
-  Widget _buildIzinCard(izin, double screenWidth, bool isVerySmallScreen) {
+  Widget _buildLemburCard(lembur) {
     Color statusColor;
-    switch (izin.status) {
+    switch (lembur.status) {
       case 'pending':
         statusColor = Colors.orange;
         break;
@@ -642,30 +552,8 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
         statusColor = Colors.grey;
     }
 
-    Color getKategoriColor() {
-      switch (izin.kategoriIzin) {
-        case 'sakit':
-          return AppColors.error;
-        case 'izin':
-          return Colors.orange;
-        case 'cuti_tahunan':
-          return Colors.blue;
-        case 'cuti_khusus':
-          return AppColors.primary;
-        default:
-          return Colors.grey;
-      }
-    }
-
-    final labelFontSize = (screenWidth * 0.028).clamp(10.0, 12.0);
-    final titleFontSize = (screenWidth * 0.032).clamp(11.0, 13.0);
-    final valueFontSize = (screenWidth * 0.035).clamp(12.0, 14.0);
-    final bodyFontSize = (screenWidth * 0.031).clamp(11.0, 13.0);
-    final smallFontSize = (screenWidth * 0.026).clamp(9.0, 11.0);
-    final durasiSize = (screenWidth * 0.055).clamp(18.0, 24.0);
-
     return Container(
-      margin: EdgeInsets.only(bottom: isVerySmallScreen ? 10 : 12),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -681,7 +569,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: EdgeInsets.all(isVerySmallScreen ? 10 : 12),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
@@ -692,40 +580,40 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isVerySmallScreen ? 6 : 8,
-                    vertical: isVerySmallScreen ? 3 : 4,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: getKategoriColor().withOpacity(0.2),
+                    color: Colors.deepPurple.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(
-                    izin.kategoriLabel,
+                  child: const Text(
+                    'Lembur',
                     style: TextStyle(
-                      color: getKategoriColor(),
+                      color: Colors.deepPurple,
                       fontWeight: FontWeight.bold,
-                      fontSize: labelFontSize,
+                      fontSize: 12,
                     ),
                   ),
                 ),
-                SizedBox(width: isVerySmallScreen ? 6 : 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    izin.statusText,
+                    lembur.statusText,
                     style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.w600,
-                      fontSize: titleFontSize,
+                      fontSize: 13,
                     ),
                   ),
                 ),
                 GestureDetector(
                   onTapDown: (details) {
-                    _showMenu(context, izin, details.globalPosition);
+                    _showMenu(context, lembur, details.globalPosition);
                   },
                   child: Container(
-                    padding: EdgeInsets.all(isVerySmallScreen ? 4 : 6),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(8),
@@ -733,7 +621,7 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
                     child: Icon(
                       Icons.more_vert,
                       color: Colors.grey.shade700,
-                      size: isVerySmallScreen ? 18 : 20,
+                      size: 20,
                     ),
                   ),
                 ),
@@ -741,138 +629,70 @@ class _PengajuanIzinPageState extends State<PengajuanIzinPage> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.all(isVerySmallScreen ? 10 : 12),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (izin.subKategoriIzin != null) ...[
-                  Text(
-                    izin.deskripsiIzin,
-                    style: TextStyle(
-                      fontSize: valueFontSize,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  SizedBox(height: isVerySmallScreen ? 6 : 8),
-                ],
                 Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.all(isVerySmallScreen ? 6 : 8),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: Colors.deepPurple.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Column(
-                        children: [
-                          Text(
-                            '${izin.durasiHari}',
-                            style: TextStyle(
-                              fontSize: durasiSize,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          Text(
-                            'Hari',
-                            style: TextStyle(
-                              fontSize: smallFontSize,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
+                      child: const Icon(
+                        Icons.access_time,
+                        color: Colors.deepPurple,
+                        size: 24,
                       ),
                     ),
-                    SizedBox(width: isVerySmallScreen ? 10 : 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today,
-                                size: isVerySmallScreen ? 12 : 14,
-                                color: Colors.grey,
-                              ),
-                              SizedBox(width: isVerySmallScreen ? 3 : 4),
-                              Flexible(
-                                child: Text(
-                                  DateFormat(
-                                    'dd MMM yyyy',
-                                    'id_ID',
-                                  ).format(izin.tanggalMulai),
-                                  style: TextStyle(
-                                    fontSize: bodyFontSize,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                          const Text(
+                            'Tanggal Lembur',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
                           ),
-                          SizedBox(height: isVerySmallScreen ? 3 : 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.event,
-                                size: isVerySmallScreen ? 12 : 14,
-                                color: Colors.grey,
-                              ),
-                              SizedBox(width: isVerySmallScreen ? 3 : 4),
-                              Flexible(
-                                child: Text(
-                                  DateFormat(
-                                    'dd MMM yyyy',
-                                    'id_ID',
-                                  ).format(izin.tanggalSelesai),
-                                  style: TextStyle(
-                                    fontSize: bodyFontSize,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                          const SizedBox(height: 4),
+                          Text(
+                            DateFormat(
+                              'EEEE, dd MMMM yyyy',
+                              'id_ID',
+                            ).format(lembur.tanggal),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                if (izin.keterangan != null && izin.keterangan!.isNotEmpty) ...[
-                  SizedBox(height: isVerySmallScreen ? 10 : 12),
-                  Text(
-                    izin.keterangan!,
-                    style: TextStyle(
-                      fontSize: bodyFontSize,
-                      color: Colors.black87,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                SizedBox(height: isVerySmallScreen ? 6 : 8),
+                const SizedBox(height: 8),
                 const Divider(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Flexible(
-                      child: Text(
-                        'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(izin.createdAt)}',
-                        style: TextStyle(
-                          fontSize: smallFontSize,
-                          color: Colors.grey.shade600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(lembur.createdAt)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
                       ),
                     ),
-                    if (izin.fileUrl != null)
-                      Icon(
+                    if (lembur.fileSklUrl != null)
+                      const Icon(
                         Icons.attach_file,
-                        size: isVerySmallScreen ? 14 : 16,
-                        color: AppColors.primary,
+                        size: 16,
+                        color: AppColors.error,
                       ),
                   ],
                 ),

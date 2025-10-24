@@ -12,7 +12,10 @@ class TukarShiftDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final padding = screenWidth * 0.06;
+    final padding = screenWidth * 0.05;
+    final titleFontSize = (screenWidth * 0.048).clamp(16.0, 20.0);
+    final bodyFontSize = (screenWidth * 0.036).clamp(12.0, 14.0);
+    final smallFontSize = (screenWidth * 0.032).clamp(10.0, 12.0);
 
     final status = request.status;
     final jenis = request.jenis;
@@ -58,17 +61,23 @@ class TukarShiftDetailPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context, screenWidth, screenHeight, padding),
+            _buildHeader(
+              context,
+              screenWidth,
+              screenHeight,
+              padding,
+              titleFontSize,
+            ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(padding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Status card
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(18),
+                      padding: EdgeInsets.all(screenWidth * 0.045),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
@@ -80,7 +89,7 @@ class TukarShiftDetailPage extends StatelessWidget {
                       child: Column(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: EdgeInsets.all(screenWidth * 0.03),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.2),
                               shape: BoxShape.circle,
@@ -88,47 +97,49 @@ class TukarShiftDetailPage extends StatelessWidget {
                             child: Icon(
                               statusIcon,
                               color: statusColor,
-                              size: 40,
+                              size: (screenWidth * 0.1).clamp(36.0, 40.0),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: screenWidth * 0.03),
                           Text(
                             statusText,
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: (screenWidth * 0.045).clamp(15.0, 18.0),
                               fontWeight: FontWeight.bold,
                               color: statusColor,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: screenWidth * 0.015),
                           Text(
                             'Diajukan: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(request.tanggalRequest)}',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: smallFontSize,
                               color: Colors.grey.shade600,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                           if (request.tanggalDiproses != null) ...[
-                            const SizedBox(height: 3),
+                            SizedBox(height: screenWidth * 0.007),
                             Text(
                               'Diproses: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(request.tanggalDiproses!)}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: smallFontSize,
                                 color: Colors.grey.shade600,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: screenHeight * 0.025),
 
                     // Jenis permintaan badge
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.035,
+                        vertical: screenWidth * 0.02,
                       ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -153,9 +164,9 @@ class TukarShiftDetailPage extends StatelessWidget {
                             color: jenis == 'saya'
                                 ? Colors.blue.shade700
                                 : Colors.purple.shade700,
-                            size: 18,
+                            size: (screenWidth * 0.045).clamp(16.0, 18.0),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: screenWidth * 0.02),
                           Text(
                             jenis == 'saya'
                                 ? 'Permintaan Saya'
@@ -165,27 +176,27 @@ class TukarShiftDetailPage extends StatelessWidget {
                                   ? Colors.blue.shade700
                                   : Colors.purple.shade700,
                               fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              fontSize: bodyFontSize,
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: screenHeight * 0.025),
 
                     // Karyawan tujuan
-                    const Text(
+                    Text(
                       'Karyawan:',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: bodyFontSize,
                         fontWeight: FontWeight.w600,
                         color: Colors.black54,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: screenWidth * 0.025),
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: EdgeInsets.all(screenWidth * 0.035),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
@@ -200,8 +211,8 @@ class TukarShiftDetailPage extends StatelessWidget {
                       child: Row(
                         children: [
                           Container(
-                            width: 54,
-                            height: 54,
+                            width: (screenWidth * 0.135).clamp(48.0, 54.0),
+                            height: (screenWidth * 0.135).clamp(48.0, 54.0),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
@@ -211,37 +222,37 @@ class TukarShiftDetailPage extends StatelessWidget {
                               ),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.person,
                               color: AppColors.primary,
-                              size: 28,
+                              size: (screenWidth * 0.07).clamp(24.0, 28.0),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: screenWidth * 0.035),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   karyawanTujuan.nama,
-                                  style: const TextStyle(
-                                    fontSize: 16,
+                                  style: TextStyle(
+                                    fontSize: bodyFontSize,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                const SizedBox(height: 3),
+                                SizedBox(height: screenWidth * 0.007),
                                 Text(
                                   '📞 ${karyawanTujuan.noTelp}',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: smallFontSize,
                                     color: Colors.grey.shade600,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                SizedBox(height: screenWidth * 0.005),
                                 Text(
                                   '${karyawanTujuan.jabatan} - ${karyawanTujuan.divisi}',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: smallFontSize,
                                     color: Colors.grey.shade600,
                                   ),
                                 ),
@@ -252,18 +263,18 @@ class TukarShiftDetailPage extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    SizedBox(height: screenHeight * 0.03),
 
                     // Shift exchange details
-                    const Text(
+                    Text(
                       'Detail Pertukaran:',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: bodyFontSize,
                         fontWeight: FontWeight.w600,
                         color: Colors.black54,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: screenWidth * 0.025),
 
                     _buildShiftCard(
                       jenis == 'saya'
@@ -271,13 +282,16 @@ class TukarShiftDetailPage extends StatelessWidget {
                           : 'Shift ${karyawanTujuan.nama}',
                       shiftSaya,
                       Colors.blue,
+                      screenWidth,
+                      bodyFontSize,
+                      smallFontSize,
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: screenHeight * 0.02),
 
                     Center(
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.all(screenWidth * 0.03),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
@@ -287,15 +301,15 @@ class TukarShiftDetailPage extends StatelessWidget {
                           ),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.swap_vert,
                           color: AppColors.primary,
-                          size: 32,
+                          size: (screenWidth * 0.08).clamp(28.0, 32.0),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: screenHeight * 0.02),
 
                     _buildShiftCard(
                       jenis == 'saya'
@@ -303,24 +317,27 @@ class TukarShiftDetailPage extends StatelessWidget {
                           : 'Shift Saya',
                       shiftDiminta,
                       Colors.green,
+                      screenWidth,
+                      bodyFontSize,
+                      smallFontSize,
                     ),
 
-                    const SizedBox(height: 24),
+                    SizedBox(height: screenHeight * 0.03),
 
                     // Catatan
                     if (catatan != null && catatan.isNotEmpty) ...[
-                      const Text(
+                      Text(
                         'Catatan:',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: bodyFontSize,
                           fontWeight: FontWeight.w600,
                           color: Colors.black54,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: screenWidth * 0.025),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(screenWidth * 0.035),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
@@ -335,27 +352,27 @@ class TukarShiftDetailPage extends StatelessWidget {
                         ),
                         child: Text(
                           catatan,
-                          style: const TextStyle(fontSize: 14, height: 1.5),
+                          style: TextStyle(fontSize: bodyFontSize, height: 1.5),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: screenHeight * 0.025),
                     ],
 
                     // Alasan penolakan
                     if (alasanPenolakan != null &&
                         alasanPenolakan.isNotEmpty) ...[
-                      const Text(
+                      Text(
                         'Alasan Penolakan:',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: bodyFontSize,
                           fontWeight: FontWeight.w600,
                           color: Colors.black54,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: screenWidth * 0.025),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(14),
+                        padding: EdgeInsets.all(screenWidth * 0.035),
                         decoration: BoxDecoration(
                           color: AppColors.error.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(16),
@@ -369,14 +386,14 @@ class TukarShiftDetailPage extends StatelessWidget {
                             Icon(
                               Icons.info_outline,
                               color: AppColors.error,
-                              size: 22,
+                              size: (screenWidth * 0.055).clamp(20.0, 22.0),
                             ),
-                            const SizedBox(width: 10),
+                            SizedBox(width: screenWidth * 0.025),
                             Expanded(
                               child: Text(
                                 alasanPenolakan,
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: bodyFontSize,
                                   color: Colors.grey.shade800,
                                   height: 1.5,
                                 ),
@@ -401,7 +418,10 @@ class TukarShiftDetailPage extends StatelessWidget {
     double screenWidth,
     double screenHeight,
     double padding,
+    double titleFontSize,
   ) {
+    final iconSize = (screenWidth * 0.1).clamp(36.0, 42.0);
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: padding,
@@ -413,15 +433,15 @@ class TukarShiftDetailPage extends StatelessWidget {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: screenWidth * 0.1,
-              height: screenWidth * 0.1,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.arrow_back_ios_new,
-                size: screenWidth * 0.045,
+                size: (screenWidth * 0.045).clamp(16.0, 18.0),
                 color: Colors.black87,
               ),
             ),
@@ -430,22 +450,29 @@ class TukarShiftDetailPage extends StatelessWidget {
           Text(
             "Detail Tukar Shift",
             style: TextStyle(
-              fontSize: screenWidth * 0.048,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
               letterSpacing: 0.5,
             ),
           ),
           const Spacer(),
-          SizedBox(width: screenWidth * 0.1),
+          SizedBox(width: iconSize),
         ],
       ),
     );
   }
 
-  Widget _buildShiftCard(String label, ShiftInfo shift, Color color) {
+  Widget _buildShiftCard(
+    String label,
+    ShiftInfo shift,
+    Color color,
+    double screenWidth,
+    double bodyFontSize,
+    double smallFontSize,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -462,7 +489,10 @@ class TukarShiftDetailPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.03,
+              vertical: screenWidth * 0.015,
+            ),
             decoration: BoxDecoration(
               color: color.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
@@ -470,24 +500,28 @@ class TukarShiftDetailPage extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: smallFontSize,
                 fontWeight: FontWeight.bold,
                 color: color.withOpacity(0.9),
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: screenWidth * 0.035),
 
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(screenWidth * 0.03),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
-                Icon(Icons.calendar_today, color: color, size: 20),
-                const SizedBox(width: 12),
+                Icon(
+                  Icons.calendar_today,
+                  color: color,
+                  size: (screenWidth * 0.05).clamp(18.0, 20.0),
+                ),
+                SizedBox(width: screenWidth * 0.03),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,7 +529,7 @@ class TukarShiftDetailPage extends StatelessWidget {
                       Text(
                         DateFormat('EEEE', 'id_ID').format(shift.tanggal),
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: bodyFontSize,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey.shade700,
                         ),
@@ -505,8 +539,8 @@ class TukarShiftDetailPage extends StatelessWidget {
                           'dd MMMM yyyy',
                           'id_ID',
                         ).format(shift.tanggal),
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: TextStyle(
+                          fontSize: bodyFontSize,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -517,13 +551,13 @@ class TukarShiftDetailPage extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: screenWidth * 0.03),
 
           Row(
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(screenWidth * 0.03),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
@@ -534,15 +568,15 @@ class TukarShiftDetailPage extends StatelessWidget {
                       Text(
                         'Shift',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: (screenWidth * 0.029).clamp(10.0, 11.0),
                           color: Colors.grey.shade600,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: screenWidth * 0.015),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: screenWidth * 0.025,
+                          vertical: screenWidth * 0.0125,
                         ),
                         decoration: BoxDecoration(
                           color: color,
@@ -550,10 +584,10 @@ class TukarShiftDetailPage extends StatelessWidget {
                         ),
                         child: Text(
                           'Shift ${shift.shiftCode}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: smallFontSize,
                           ),
                         ),
                       ),
@@ -561,11 +595,11 @@ class TukarShiftDetailPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: screenWidth * 0.03),
               Expanded(
                 flex: 2,
                 child: Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(screenWidth * 0.03),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
@@ -576,21 +610,27 @@ class TukarShiftDetailPage extends StatelessWidget {
                       Text(
                         'Jam Kerja',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: (screenWidth * 0.029).clamp(10.0, 11.0),
                           color: Colors.grey.shade600,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: screenWidth * 0.015),
                       Row(
                         children: [
-                          Icon(Icons.access_time, color: color, size: 16),
-                          const SizedBox(width: 6),
-                          Text(
-                            shift.waktu ??
-                                '${shift.waktuMulai} - ${shift.waktuSelesai}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
+                          Icon(
+                            Icons.access_time,
+                            color: color,
+                            size: (screenWidth * 0.04).clamp(14.0, 16.0),
+                          ),
+                          SizedBox(width: screenWidth * 0.015),
+                          Flexible(
+                            child: Text(
+                              shift.waktu ??
+                                  '${shift.waktuMulai} - ${shift.waktuSelesai}',
+                              style: TextStyle(
+                                fontSize: bodyFontSize,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],

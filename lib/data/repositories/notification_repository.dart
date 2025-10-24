@@ -1,10 +1,10 @@
 // lib/data/repositories/notification_repository.dart
 import '../models/notification_model.dart';
-import '../services/api_service.dart';
+import '../services/dio_service.dart';
 import '../../core/config/app_config.dart';
 
 class NotificationRepository {
-  final ApiService _apiService = ApiService();
+  final DioService _dioService = DioService();
 
   /// Get notifications with pagination
   Future<Map<String, dynamic>> getNotifications({
@@ -13,7 +13,7 @@ class NotificationRepository {
     bool onlyUnread = false,
   }) async {
     try {
-      final response = await _apiService.get(
+      final response = await _dioService.get(
         '${AppConfig.notificationsEndpoint}?page=$page&per_page=$perPage&only_unread=${onlyUnread ? 1 : 0}',
       );
 
@@ -44,7 +44,7 @@ class NotificationRepository {
   /// Get unread count
   Future<int> getUnreadCount() async {
     try {
-      final response = await _apiService.get(
+      final response = await _dioService.get(
         AppConfig.notificationUnreadCountEndpoint,
       );
 
@@ -63,7 +63,7 @@ class NotificationRepository {
   /// Mark notification as read
   Future<void> markAsRead(int notificationId) async {
     try {
-      final response = await _apiService.post(
+      final response = await _dioService.post(
         '${AppConfig.notificationsEndpoint}/$notificationId/read',
         {},
       );
@@ -79,7 +79,7 @@ class NotificationRepository {
   /// Mark all notifications as read
   Future<void> markAllAsRead() async {
     try {
-      final response = await _apiService.post(
+      final response = await _dioService.post(
         '${AppConfig.notificationsEndpoint}/read-all',
         {},
       );
@@ -97,7 +97,7 @@ class NotificationRepository {
   /// Delete notification
   Future<void> deleteNotification(int notificationId) async {
     try {
-      final response = await _apiService.delete(
+      final response = await _dioService.delete(
         '${AppConfig.notificationsEndpoint}/$notificationId',
       );
 

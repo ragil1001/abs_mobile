@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../providers/izin_provider.dart';
 import '../core/constants/app_colors.dart';
 import '../data/models/pengajuan_izin_model.dart';
-import '../components/custom_snackbar.dart';
 import 'detail_izin_page.dart';
 
 class DataIzinPage extends StatefulWidget {
@@ -41,19 +40,19 @@ class _DataIzinPageState extends State<DataIzinPage> {
     await izinProvider.loadPengajuan();
   }
 
-  // When navigating to detail, refresh on return
-  void _navigateToDetail(int izinId) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => DetailIzinPage(izinId: izinId)),
-    );
+  // // When navigating to detail, refresh on return
+  // void _navigateToDetail(int izinId) async {
+  //   await Navigator.push(
+  //     context,
+  //     MaterialPageRoute(builder: (_) => DetailIzinPage(izinId: izinId)),
+  //   );
 
-    // Refresh after returning
-    if (mounted && _shouldRefresh) {
-      _lastRefreshTime = null;
-      _loadData();
-    }
-  }
+  //   // Refresh after returning
+  //   if (mounted && _shouldRefresh) {
+  //     _lastRefreshTime = null;
+  //     _loadData();
+  //   }
+  // }
 
   List<PengajuanIzin> _getFilteredIzin(List<PengajuanIzin> disetujuiList) {
     final now = DateTime.now();
@@ -441,7 +440,26 @@ class _DataIzinPageState extends State<DataIzinPage> {
     );
   }
 
+  // UPDATE untuk _buildIzinCard di data_izin_page.dart
+  // Replace fungsi _buildIzinCard dengan yang ini:
+
   Widget _buildIzinCard(PengajuanIzin izin) {
+    // Helper untuk mendapatkan warna kategori
+    Color getKategoriColor() {
+      switch (izin.kategoriIzin) {
+        case 'sakit':
+          return AppColors.error;
+        case 'izin':
+          return Colors.orange;
+        case 'cuti_tahunan':
+          return Colors.blue;
+        case 'cuti_khusus':
+          return AppColors.primary;
+        default:
+          return Colors.grey;
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -483,17 +501,13 @@ class _DataIzinPageState extends State<DataIzinPage> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: izin.jenisIzin == "Sakit"
-                          ? AppColors.error.withOpacity(0.2)
-                          : AppColors.primary.withOpacity(0.2),
+                      color: getKategoriColor().withOpacity(0.2),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      izin.jenisIzin,
+                      izin.kategoriLabel,
                       style: TextStyle(
-                        color: izin.jenisIzin == "Sakit"
-                            ? AppColors.error
-                            : AppColors.primary,
+                        color: getKategoriColor(),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -526,97 +540,117 @@ class _DataIzinPageState extends State<DataIzinPage> {
             ),
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                  // Display deskripsi lengkap untuk cuti khusus
+                  if (izin.subKategoriIzin != null) ...[
+                    Text(
+                      izin.deskripsiIzin,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        Text(
-                          '${izin.durasiHari}',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.success,
-                          ),
+                    const SizedBox(height: 8),
+                  ],
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const Text(
-                          'Hari',
-                          style: TextStyle(fontSize: 12, color: Colors.black54),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                        child: Column(
                           children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              size: 14,
-                              color: Colors.grey,
+                            Text(
+                              '${izin.durasiHari}',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.success,
+                              ),
                             ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                DateFormat(
-                                  'dd MMM yyyy',
-                                  'id_ID',
-                                ).format(izin.tanggalMulai),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            const Text(
+                              'Hari',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Row(
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
-                              Icons.event,
-                              size: 14,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                DateFormat(
-                                  'dd MMM yyyy',
-                                  'id_ID',
-                                ).format(izin.tanggalSelesai),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today,
+                                  size: 14,
+                                  color: Colors.grey,
                                 ),
-                              ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat(
+                                      'dd MMM yyyy',
+                                      'id_ID',
+                                    ).format(izin.tanggalMulai),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.event,
+                                  size: 14,
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    DateFormat(
+                                      'dd MMM yyyy',
+                                      'id_ID',
+                                    ).format(izin.tanggalSelesai),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (izin.keterangan != null &&
+                                izin.keterangan!.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                izin.keterangan!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black87,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ],
                         ),
-                        if (izin.keterangan != null &&
-                            izin.keterangan!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            izin.keterangan!,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),

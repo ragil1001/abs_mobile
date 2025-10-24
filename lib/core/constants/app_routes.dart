@@ -7,6 +7,8 @@ class AppRoutes {
   static const String absensi = '/absensi';
   static const String jadwal = '/jadwal';
   static const String detailIzin = '/detail-izin';
+  static const String detailLembur = '/detail-lembur';
   static const String notifications = '/notifications';
   static const String detailTukarShift = '/detail-tukar-shift';
+  static const String historyAbsensi = '/history-absensi';
 }

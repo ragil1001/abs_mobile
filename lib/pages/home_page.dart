@@ -3,27 +3,36 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
 import '../providers/presensi_provider.dart';
-import '../providers/notification_provider.dart'; // ✅ Add this
+import '../providers/notification_provider.dart';
+import '../components/custom_snackbar.dart';
 import '../components/shimmer_loading.dart';
 import 'profile_page.dart';
 import 'pengajuan_izin_page.dart';
+import 'pengajuan_lembur_page.dart';
 import 'jadwal_page.dart';
 import 'tukar_shift/tukar_shift_page.dart';
 import 'dart:async';
 import '../core/constants/app_routes.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final bool isForceLoading; // ✅ NEW parameter
+
+  const HomePage({super.key, this.isForceLoading = false});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with AutomaticKeepAliveClientMixin {
   Timer? _dateTimer;
   String _currentDate = '';
   final GlobalKey _whiteCardKey = GlobalKey();
   double _whiteCardHeight = 0;
+  bool _hasShownWelcome = false; // ✅ NEW: Track welcome message
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -42,18 +51,43 @@ class _HomePageState extends State<HomePage> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PresensiProvider>().loadPresensiData();
+      _loadInitialData();
       _measureWhiteCard();
-      // ✅ Load notification count
-      _loadNotificationCount();
+      _showWelcomeMessage(); // ✅ NEW: Show welcome after login
     });
+  }
+
+  // ✅ NEW: Show welcome message hanya sekali
+  void _showWelcomeMessage() {
+    if (!_hasShownWelcome && mounted) {
+      _hasShownWelcome = true;
+
+      // Delay sedikit agar page sudah fully loaded
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          final authProvider = context.read<AuthProvider>();
+          final userName =
+              authProvider.currentUser?.nama.split(' ').first ?? 'User';
+
+          CustomSnackbar.showSuccess(
+            context,
+            'Selamat datang kembali, $userName! 👋',
+          );
+        }
+      });
+    }
+  }
+
+  Future<void> _loadInitialData() async {
+    await context.read<PresensiProvider>().loadPresensiData();
+    await _loadNotificationCount();
   }
 
   Future<void> _loadNotificationCount() async {
     try {
       await context.read<NotificationProvider>().loadUnreadCount();
     } catch (e) {
-      print('Error loading notification count: $e');
+      debugPrint('Error loading notification count: $e');
     }
   }
 
@@ -69,6 +103,19 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // ✅ Refresh dengan shimmer effect
+  Future<void> _refreshAllData() async {
+    try {
+      await Future.wait([
+        context.read<AuthProvider>().initAuth(),
+        context.read<PresensiProvider>().refreshPresensiData(),
+        _loadNotificationCount(),
+      ]);
+    } catch (e) {
+      debugPrint('Error refreshing data: $e');
+    }
+  }
+
   @override
   void dispose() {
     _dateTimer?.cancel();
@@ -77,12 +124,13 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
     final bool isVerySmallScreen = screenWidth < 340;
     final bool isSmallScreen = screenWidth >= 340 && screenWidth < 360;
-    final bool isMediumScreen = screenWidth >= 360 && screenWidth < 400;
 
     final padding = screenWidth * 0.05;
     final avatarSize = (screenWidth * 0.13).clamp(42.0, 56.0);
@@ -98,106 +146,89 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Consumer3<AuthProvider, PresensiProvider, NotificationProvider>(
-          builder: (context, authProvider, presensiProvider, notificationProvider, child) {
-            final karyawan = authProvider.currentUser;
-            final userName = karyawan?.nama.split(' ').first ?? 'User';
-            final presensiData = presensiProvider.presensiData;
-            final unreadCount =
-                notificationProvider.unreadCount; // ✅ Get real count
+          builder:
+              (
+                context,
+                authProvider,
+                presensiProvider,
+                notificationProvider,
+                child,
+              ) {
+                final karyawan = authProvider.currentUser;
+                final namaParts = karyawan?.nama.split(' ') ?? [];
+                final userName = namaParts.length >= 2
+                    ? '${namaParts[0]} ${namaParts[1]}'
+                    : (namaParts.isNotEmpty ? namaParts[0] : 'User');
 
-            // Trigger measurement after data changes
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _measureWhiteCard();
-            });
+                final presensiData = presensiProvider.presensiData;
+                final unreadCount = notificationProvider.unreadCount;
 
-            return RefreshIndicator(
-              onRefresh: () async {
-                await presensiProvider.refreshPresensiData();
-                await _loadNotificationCount(); // ✅ Refresh notification count
-              },
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: presensiProvider.isLoading
-                    ? _buildShimmerLayout(
-                        screenWidth,
-                        screenHeight,
-                        padding,
-                        avatarSize,
-                        notifSize,
-                        companyIconSize,
-                        titleFontSize,
-                        subtitleFontSize,
-                        isVerySmallScreen,
-                        isSmallScreen,
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              padding,
-                              screenHeight * 0.02,
-                              padding,
-                              0,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const ProfilePage(),
-                                      ),
-                                    );
-                                  },
-                                  child: Container(
-                                    width: avatarSize,
-                                    height: avatarSize,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: const Color.fromARGB(
-                                        255,
-                                        221,
-                                        225,
-                                        231,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.08),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Icon(
-                                      Icons.person,
-                                      size: avatarSize * 0.6,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _measureWhiteCard();
+                });
+
+                // ✅ Show shimmer jika loading ATAU force shimmer
+                final shouldShowShimmer =
+                    widget.isForceLoading || presensiProvider.isLoading;
+
+                return RefreshIndicator(
+                  onRefresh: _refreshAllData,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: shouldShowShimmer
+                        ? _buildShimmerLayout(
+                            screenWidth,
+                            screenHeight,
+                            padding,
+                            avatarSize,
+                            notifSize,
+                            companyIconSize,
+                            titleFontSize,
+                            subtitleFontSize,
+                            isVerySmallScreen,
+                            isSmallScreen,
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  padding,
+                                  screenHeight * 0.02,
+                                  padding,
+                                  0,
                                 ),
-                                Stack(
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     GestureDetector(
-                                      onTap: () {
-                                        // Navigate ke notification page
-                                        Navigator.pushNamed(
+                                      onTap: () async {
+                                        // ✅ Navigate ke profile
+                                        await Navigator.push(
                                           context,
-                                          AppRoutes.notifications,
-                                        ).then((_) {
-                                          // ✅ Refresh notification count setelah kembali
-                                          _loadNotificationCount();
-                                        });
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const ProfilePage(),
+                                          ),
+                                        );
+
+                                        // ✅ Langsung refresh saat kembali
+                                        if (mounted) {
+                                          await _refreshAllData();
+                                        }
                                       },
                                       child: Container(
-                                        width: notifSize,
-                                        height: notifSize,
+                                        width: avatarSize,
+                                        height: avatarSize,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: Colors.white,
+                                          color: const Color.fromARGB(
+                                            255,
+                                            221,
+                                            225,
+                                            231,
+                                          ),
                                           boxShadow: [
                                             BoxShadow(
                                               color: Colors.black.withOpacity(
@@ -209,266 +240,304 @@ class _HomePageState extends State<HomePage> {
                                           ],
                                         ),
                                         child: Icon(
-                                          Icons.notifications_none,
-                                          size: notifSize * 0.55,
-                                          color: Colors.black87,
+                                          Icons.person,
+                                          size: avatarSize * 0.6,
+                                          color: Colors.white,
                                         ),
                                       ),
                                     ),
-                                    // ✅ Real-time badge from NotificationProvider
-                                    if (unreadCount > 0)
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(3),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.red,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          constraints: BoxConstraints(
-                                            minWidth: isVerySmallScreen
-                                                ? 16
-                                                : 18,
-                                            minHeight: isVerySmallScreen
-                                                ? 16
-                                                : 18,
-                                          ),
-                                          child: Text(
-                                            unreadCount > 99
-                                                ? '99+'
-                                                : '$unreadCount',
-                                            style: TextStyle(
+                                    Stack(
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () {
+                                            Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.notifications,
+                                            ).then((_) {
+                                              _loadNotificationCount();
+                                            });
+                                          },
+                                          child: Container(
+                                            width: notifSize,
+                                            height: notifSize,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
                                               color: Colors.white,
-                                              fontSize: isVerySmallScreen
-                                                  ? 9
-                                                  : 10,
-                                              fontWeight: FontWeight.bold,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.08),
+                                                  blurRadius: 6,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
                                             ),
-                                            textAlign: TextAlign.center,
+                                            child: Icon(
+                                              Icons.notifications_none,
+                                              size: notifSize * 0.55,
+                                              color: Colors.black87,
+                                            ),
                                           ),
                                         ),
-                                      ),
+                                        if (unreadCount > 0)
+                                          Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(3),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.red,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              constraints: BoxConstraints(
+                                                minWidth: isVerySmallScreen
+                                                    ? 16
+                                                    : 18,
+                                                minHeight: isVerySmallScreen
+                                                    ? 16
+                                                    : 18,
+                                              ),
+                                              child: Text(
+                                                unreadCount > 99
+                                                    ? '99+'
+                                                    : '$unreadCount',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: isVerySmallScreen
+                                                      ? 9
+                                                      : 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: screenHeight * 0.02),
-
-                          Container(
-                            color: const Color.fromARGB(255, 250, 251, 253),
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                padding,
-                                screenHeight * 0.02,
-                                padding,
-                                0,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
+                              SizedBox(height: screenHeight * 0.02),
+
+                              Container(
+                                color: const Color.fromARGB(255, 250, 251, 253),
+                                child: Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    padding,
+                                    screenHeight * 0.02,
+                                    padding,
+                                    0,
+                                  ),
+                                  child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                Text(
-                                                  'Halo, ',
-                                                  style: TextStyle(
-                                                    fontSize: titleFontSize,
-                                                    fontWeight: FontWeight.w300,
-                                                    color: Colors.black87,
-                                                  ),
-                                                ),
-                                                Flexible(
-                                                  child: Text(
-                                                    userName,
-                                                    style: TextStyle(
-                                                      fontSize: titleFontSize,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: Colors.black87,
+                                                Row(
+                                                  children: [
+                                                    Text(
+                                                      'Halo, ',
+                                                      style: TextStyle(
+                                                        fontSize: titleFontSize,
+                                                        fontWeight:
+                                                            FontWeight.w300,
+                                                        color: Colors.black87,
+                                                      ),
                                                     ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
+                                                    Flexible(
+                                                      child: Text(
+                                                        userName,
+                                                        style: TextStyle(
+                                                          fontSize:
+                                                              titleFontSize,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Colors.black87,
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                    ),
+                                                    SizedBox(
+                                                      width: screenWidth * 0.01,
+                                                    ),
+                                                    Text(
+                                                      '👋',
+                                                      style: TextStyle(
+                                                        fontSize: titleFontSize,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                                 SizedBox(
-                                                  width: screenWidth * 0.01,
+                                                  height: screenHeight * 0.003,
                                                 ),
                                                 Text(
-                                                  '👋',
+                                                  _currentDate,
                                                   style: TextStyle(
-                                                    fontSize: titleFontSize,
+                                                    fontSize: subtitleFontSize,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.black54,
                                                   ),
                                                 ),
                                               ],
                                             ),
-                                            SizedBox(
-                                              height: screenHeight * 0.003,
-                                            ),
-                                            Text(
-                                              _currentDate,
-                                              style: TextStyle(
-                                                fontSize: subtitleFontSize,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.black54,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        width: companyIconSize,
-                                        height: companyIconSize,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white,
-                                          border: Border.all(
-                                            color: Colors.orange,
-                                            width: 2,
                                           ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.orange.withOpacity(
-                                                0.25,
+                                          Container(
+                                            width: companyIconSize,
+                                            height: companyIconSize,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.white,
+                                              border: Border.all(
+                                                color: Colors.orange,
+                                                width: 2,
                                               ),
-                                              blurRadius: 6,
-                                              offset: const Offset(0, 2),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.orange
+                                                      .withOpacity(0.25),
+                                                  blurRadius: 6,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
                                             ),
-                                          ],
-                                        ),
-                                        child: Icon(
-                                          Icons.business,
-                                          size: companyIconSize * 0.56,
-                                          color: Colors.orange,
-                                        ),
+                                            child: Icon(
+                                              Icons.business,
+                                              size: companyIconSize * 0.56,
+                                              color: Colors.orange,
+                                            ),
+                                          ),
+                                        ],
                                       ),
+                                      SizedBox(height: screenHeight * 0.022),
+
+                                      if (presensiProvider.errorMessage != null)
+                                        _buildErrorCard(
+                                          screenWidth,
+                                          screenHeight,
+                                          presensiProvider.errorMessage!,
+                                        )
+                                      else
+                                        _buildDataCard(
+                                          screenWidth,
+                                          screenHeight,
+                                          bodyFontSize,
+                                          smallFontSize,
+                                          presensiData,
+                                        ),
+                                      SizedBox(height: screenHeight * 0.028),
                                     ],
                                   ),
-                                  SizedBox(height: screenHeight * 0.022),
-
-                                  if (presensiProvider.errorMessage != null)
-                                    _buildErrorCard(
-                                      screenWidth,
-                                      screenHeight,
-                                      presensiProvider.errorMessage!,
-                                    )
-                                  else
-                                    _buildDataCard(
-                                      screenWidth,
-                                      screenHeight,
-                                      bodyFontSize,
-                                      smallFontSize,
-                                      presensiData,
-                                    ),
-                                  SizedBox(height: screenHeight * 0.028),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          Padding(
-                            padding: EdgeInsets.all(padding),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Menu Lainnya',
-                                  style: TextStyle(
-                                    fontSize: (screenWidth * 0.042).clamp(
-                                      14.0,
-                                      18.0,
-                                    ),
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
                                 ),
-                                SizedBox(height: screenHeight * 0.017),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
+                              ),
+
+                              Padding(
+                                padding: EdgeInsets.all(padding),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _buildMenuCard(
-                                      icon: Icons.assignment_outlined,
-                                      label: 'Izin',
-                                      color: Colors.orange,
-                                      screenWidth: screenWidth,
-                                      screenHeight: screenHeight,
-                                      isSmall:
-                                          isVerySmallScreen || isSmallScreen,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const PengajuanIzinPage(),
-                                          ),
-                                        );
-                                      },
+                                    Text(
+                                      'Menu Lainnya',
+                                      style: TextStyle(
+                                        fontSize: (screenWidth * 0.042).clamp(
+                                          14.0,
+                                          18.0,
+                                        ),
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
                                     ),
-                                    SizedBox(width: screenWidth * 0.04),
-                                    _buildMenuCard(
-                                      icon: Icons.swap_horiz,
-                                      label: 'Tukar Shift',
-                                      color: Colors.blue,
-                                      screenWidth: screenWidth,
-                                      screenHeight: screenHeight,
-                                      isSmall:
-                                          isVerySmallScreen || isSmallScreen,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const TukarShiftPage(),
-                                          ),
-                                        );
-                                      },
+                                    SizedBox(height: screenHeight * 0.017),
+
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        _buildMenuCard(
+                                          assetPath: 'assets/izin.webp',
+                                          label: 'Izin',
+                                          screenWidth: screenWidth,
+                                          screenHeight: screenHeight,
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const PengajuanIzinPage(),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        _buildMenuCard(
+                                          assetPath: 'assets/lembur.webp',
+                                          label: 'Lembur',
+                                          screenWidth: screenWidth,
+                                          screenHeight: screenHeight,
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const PengajuanLemburPage(),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        _buildMenuCard(
+                                          assetPath: 'assets/shift.webp',
+                                          label: 'Tukar Shift',
+                                          screenWidth: screenWidth,
+                                          screenHeight: screenHeight,
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const TukarShiftPage(),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        _buildMenuCard(
+                                          assetPath: 'assets/jadwal.webp',
+                                          label: 'Jadwal',
+                                          screenWidth: screenWidth,
+                                          screenHeight: screenHeight,
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const JadwalPage(),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(width: screenWidth * 0.04),
-                                    _buildMenuCard(
-                                      icon: Icons.calendar_today,
-                                      label: 'Jadwal',
-                                      color: Colors.purple,
-                                      screenWidth: screenWidth,
-                                      screenHeight: screenHeight,
-                                      isSmall:
-                                          isVerySmallScreen || isSmallScreen,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => const JadwalPage(),
-                                          ),
-                                        );
-                                      },
-                                    ),
+                                    SizedBox(height: screenHeight * 0.02),
                                   ],
                                 ),
-                                SizedBox(height: screenHeight * 0.02),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(height: 30),
+                            ],
                           ),
-                          const SizedBox(height: 30),
-                        ],
-                      ),
-              ),
-            );
-          },
+                  ),
+                );
+              },
         ),
       ),
     );
   }
-
-  // ... rest of the widget methods remain the same ...
-  // (I'll include the key ones below)
 
   Widget _buildErrorCard(
     double screenWidth,
@@ -563,7 +632,6 @@ class _HomePageState extends State<HomePage> {
     final statistik = presensiData?.statistik;
     final jadwal = presensiData?.jadwalHariIni;
     final presensi = presensiData?.presensiHariIni;
-
     final isVerySmallScreen = screenWidth < 340;
     final topOffset = isVerySmallScreen
         ? screenHeight * 0.005
@@ -943,70 +1011,77 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildMenuCard({
-    required IconData icon,
+    required String assetPath,
     required String label,
-    required Color color,
     required double screenWidth,
     required double screenHeight,
-    required bool isSmall,
     VoidCallback? onTap,
   }) {
-    final cardHeight = isSmall ? screenHeight * 0.10 : screenHeight * 0.11;
-    final cardWidth = isSmall ? screenWidth * 0.22 : screenWidth * 0.24;
-    final labelSize = (screenWidth * 0.032).clamp(11.0, 14.0);
-    final iconBarHeight = cardHeight * 0.65;
+    // Hitung lebar card agar muat 4 dalam 1 baris
+    // Formula: (screenWidth - (padding kiri + kanan) - (3 spacing)) / 4
+    final horizontalPadding = screenWidth * 0.05 * 2; // padding kiri & kanan
+    final totalSpacing = screenWidth * 0.04 * 3; // 3 spacing untuk 4 card
+    final cardWidth = (screenWidth - horizontalPadding - totalSpacing) / 4;
+
+    // Sesuaikan tinggi card (hanya untuk kotak, tidak termasuk label)
+    final cardHeight = cardWidth * 0.85; // Kotak persegi
+
+    final labelSize = (screenWidth * 0.028).clamp(9.0, 12.0);
+    final iconSize = cardWidth * 0.7; // Icon 55% dari lebar card
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        height: cardHeight,
+      child: SizedBox(
         width: cardWidth,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.grey.shade200, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // Kotak card dengan icon
             Container(
-              height: iconBarHeight,
-              width: double.infinity,
+              height: cardHeight,
+              width: cardWidth,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(15),
-                ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade200, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Center(
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: (screenWidth * 0.09).clamp(22.0, 28.0),
+                child: Image.asset(
+                  assetPath,
+                  width: iconSize,
+                  height: iconSize,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.image_not_supported,
+                      color: Colors.grey.shade400,
+                      size: iconSize * 0.6,
+                    );
+                  },
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            Expanded(
-              child: Center(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: labelSize,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
+            SizedBox(height: 6),
+            // Label di bawah kotak
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: labelSize,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -1027,12 +1102,11 @@ class _HomePageState extends State<HomePage> {
     bool isVerySmallScreen,
     bool isSmallScreen,
   ) {
-    final cardHeight = (isVerySmallScreen || isSmallScreen)
-        ? screenHeight * 0.10
-        : screenHeight * 0.11;
-    final cardWidth = (isVerySmallScreen || isSmallScreen)
-        ? screenWidth * 0.22
-        : screenWidth * 0.24;
+    // Gunakan formula yang sama dengan _buildMenuCard untuk konsistensi
+    final horizontalPadding = screenWidth * 0.05 * 2;
+    final totalSpacing = screenWidth * 0.04 * 3;
+    final cardWidth = (screenWidth - horizontalPadding - totalSpacing) / 4;
+    final cardHeight = cardWidth * 0.85;
 
     return ShimmerLoading(
       child: Column(
@@ -1126,25 +1200,69 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: 4,
                 ),
                 SizedBox(height: screenHeight * 0.017),
+                // 4 menu cards dalam 1 baris dengan spacing yang sama
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ShimmerBox(
-                      width: cardWidth,
-                      height: cardHeight,
-                      borderRadius: 15,
+                    Column(
+                      children: [
+                        ShimmerBox(
+                          width: cardWidth,
+                          height: cardHeight,
+                          borderRadius: 20,
+                        ),
+                        SizedBox(height: 6),
+                        ShimmerBox(
+                          width: cardWidth * 0.8,
+                          height: (screenWidth * 0.028).clamp(9.0, 12.0),
+                          borderRadius: 4,
+                        ),
+                      ],
                     ),
-                    SizedBox(width: screenWidth * 0.04),
-                    ShimmerBox(
-                      width: cardWidth,
-                      height: cardHeight,
-                      borderRadius: 15,
+                    Column(
+                      children: [
+                        ShimmerBox(
+                          width: cardWidth,
+                          height: cardHeight,
+                          borderRadius: 20,
+                        ),
+                        SizedBox(height: 6),
+                        ShimmerBox(
+                          width: cardWidth * 0.8,
+                          height: (screenWidth * 0.028).clamp(9.0, 12.0),
+                          borderRadius: 4,
+                        ),
+                      ],
                     ),
-                    SizedBox(width: screenWidth * 0.04),
-                    ShimmerBox(
-                      width: cardWidth,
-                      height: cardHeight,
-                      borderRadius: 15,
+                    Column(
+                      children: [
+                        ShimmerBox(
+                          width: cardWidth,
+                          height: cardHeight,
+                          borderRadius: 20,
+                        ),
+                        SizedBox(height: 6),
+                        ShimmerBox(
+                          width: cardWidth * 0.8,
+                          height: (screenWidth * 0.028).clamp(9.0, 12.0),
+                          borderRadius: 4,
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        ShimmerBox(
+                          width: cardWidth,
+                          height: cardHeight,
+                          borderRadius: 20,
+                        ),
+                        SizedBox(height: 6),
+                        ShimmerBox(
+                          width: cardWidth * 0.8,
+                          height: (screenWidth * 0.028).clamp(9.0, 12.0),
+                          borderRadius: 4,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1165,12 +1283,10 @@ String _formatTimeWithoutSeconds(String? timeString) {
   }
 
   try {
-    // Jika format sudah HH:mm, return as is
     if (timeString.length <= 5) {
       return timeString;
     }
 
-    // Jika format HH:mm:ss, ambil 5 karakter pertama (HH:mm)
     if (timeString.length >= 8 && timeString.contains(':')) {
       return timeString.substring(0, 5);
     }

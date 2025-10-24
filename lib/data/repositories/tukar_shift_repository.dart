@@ -1,8 +1,8 @@
 import '../models/tukar_shift_model.dart';
-import '../services/api_service.dart';
+import '../services/dio_service.dart';
 
 class TukarShiftRepository {
-  final ApiService _apiService = ApiService();
+  final DioService _dioService = DioService();
 
   /// Get daftar permintaan tukar shift
   Future<List<TukarShiftRequest>> getTukarShiftRequests({
@@ -31,7 +31,7 @@ class TukarShiftRepository {
         endpoint += 'start_date=$startDate&end_date=$endDate&';
       }
 
-      final response = await _apiService.get(endpoint);
+      final response = await _dioService.get(endpoint);
 
       if (response['success'] == true) {
         final List<dynamic> data = response['data'] ?? [];
@@ -49,7 +49,7 @@ class TukarShiftRepository {
   /// Get detail permintaan
   Future<TukarShiftRequest> getDetailTukarShift(int id) async {
     try {
-      final response = await _apiService.get('/mobile/tukar-shift/$id');
+      final response = await _dioService.get('/mobile/tukar-shift/$id');
 
       if (response['success'] == true) {
         return TukarShiftRequest.fromJson(response['data']);
@@ -73,7 +73,7 @@ class TukarShiftRepository {
         endpoint += 'start_date=$startDate&end_date=$endDate';
       }
 
-      final response = await _apiService.get(endpoint);
+      final response = await _dioService.get(endpoint);
 
       if (response['success'] == true) {
         final List<dynamic> data = response['data'] ?? [];
@@ -99,7 +99,7 @@ class TukarShiftRepository {
         endpoint += '&search=$search';
       }
 
-      final response = await _apiService.get(endpoint);
+      final response = await _dioService.get(endpoint);
 
       if (response['success'] == true) {
         final List<dynamic> data = response['data'] ?? [];
@@ -121,7 +121,7 @@ class TukarShiftRepository {
     String? catatan,
   }) async {
     try {
-      final response = await _apiService.post('/mobile/tukar-shift', {
+      final response = await _dioService.post('/mobile/tukar-shift', {
         'jadwal_peminta_id': jadwalPemintaId,
         'jadwal_target_id': jadwalTargetId,
         if (catatan != null && catatan.isNotEmpty) 'catatan': catatan,
@@ -144,7 +144,7 @@ class TukarShiftRepository {
     String? alasanPenolakan,
   }) async {
     try {
-      final response = await _apiService
+      final response = await _dioService
           .post('/mobile/tukar-shift/$id/proses', {
             'action': action,
             if (alasanPenolakan != null && alasanPenolakan.isNotEmpty)
@@ -162,7 +162,7 @@ class TukarShiftRepository {
   /// Batalkan tukar shift
   Future<void> cancelTukarShift(int id) async {
     try {
-      final response = await _apiService.post(
+      final response = await _dioService.post(
         '/mobile/tukar-shift/$id/cancel',
         {},
       );

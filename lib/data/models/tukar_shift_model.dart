@@ -54,7 +54,7 @@ class TukarShiftRequest {
       try {
         return DateTime.parse(value);
       } catch (e) {
-        print('Error parsing DateTime: $value, error: $e');
+        // print('Error parsing DateTime: $value, error: $e');
         return DateTime.now();
       }
     }
@@ -107,7 +107,7 @@ class ShiftInfo {
       try {
         return DateTime.parse(value);
       } catch (e) {
-        print('Error parsing DateTime: $value, error: $e');
+        // print('Error parsing DateTime: $value, error: $e');
         return DateTime.now();
       }
     }
@@ -172,12 +172,12 @@ class JadwalShift {
   });
 
   factory JadwalShift.fromJson(Map<String, dynamic> json) {
-    print('Parsing JadwalShift from JSON: $json'); // DEBUG
+    // print('Parsing JadwalShift from JSON: $json'); // DEBUG
 
     final parsedId = _parseInt(json['id'] ?? json['jadwal_id']);
-    print(
-      'Parsed ID: $parsedId from json[id]=${json['id']}, json[jadwal_id]=${json['jadwal_id']}',
-    ); // DEBUG
+    // print(
+    //   'Parsed ID: $parsedId from json[id]=${json['id']}, json[jadwal_id]=${json['jadwal_id']}',
+    // ); // DEBUG
 
     return JadwalShift(
       id: parsedId,
@@ -208,7 +208,7 @@ class JadwalShift {
       try {
         return DateTime.parse(value);
       } catch (e) {
-        print('Error parsing DateTime: $value, error: $e');
+        // print('Error parsing DateTime: $value, error: $e');
         return DateTime.now();
       }
     }

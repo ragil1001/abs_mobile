@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../data/services/api_service.dart';
+import '../data/services/dio_service.dart';
 import '../core/config/app_config.dart';
 import '../components/shimmer_loading.dart';
 import 'detail_absensi_page.dart';
@@ -77,7 +77,7 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
           startDate = endDate.subtract(const Duration(days: 90));
       }
 
-      final response = await ApiService().get(
+      final response = await DioService().get(
         '${AppConfig.mobileApiPrefix}/presensi/history?start_date=${_formatDate(startDate)}&end_date=${_formatDate(endDate)}',
       );
 

@@ -1,25 +1,25 @@
-// lib/pages/detail_izin_page.dart
+// lib/pages/detail_lembur_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../providers/izin_provider.dart';
+import '../providers/lembur_provider.dart';
 import '../providers/auth_provider.dart';
-import '../data/models/pengajuan_izin_model.dart';
+import '../data/models/pengajuan_lembur_model.dart';
 import '../core/constants/app_colors.dart';
 import '../components/custom_snackbar.dart';
 
-class DetailIzinPage extends StatefulWidget {
-  final int izinId;
+class DetailLemburPage extends StatefulWidget {
+  final int lemburId;
 
-  const DetailIzinPage({super.key, required this.izinId});
+  const DetailLemburPage({super.key, required this.lemburId});
 
   @override
-  State<DetailIzinPage> createState() => _DetailIzinPageState();
+  State<DetailLemburPage> createState() => _DetailLemburPageState();
 }
 
-class _DetailIzinPageState extends State<DetailIzinPage> {
-  PengajuanIzin? _izin;
+class _DetailLemburPageState extends State<DetailLemburPage> {
+  PengajuanLembur? _lembur;
   bool _isLoading = true;
   String? _errorMessage;
   bool _isDownloading = false;
@@ -36,20 +36,20 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
       _errorMessage = null;
     });
 
-    final izinProvider = Provider.of<IzinProvider>(context, listen: false);
-    final izin = await izinProvider.getDetail(widget.izinId);
+    final lemburProvider = Provider.of<LemburProvider>(context, listen: false);
+    final lembur = await lemburProvider.getDetail(widget.lemburId);
 
     setState(() {
-      _izin = izin;
+      _lembur = lembur;
       _isLoading = false;
-      if (izin == null) {
-        _errorMessage = izinProvider.errorMessage ?? 'Gagal memuat detail';
+      if (lembur == null) {
+        _errorMessage = lemburProvider.errorMessage ?? 'Gagal memuat detail';
       }
     });
   }
 
   Future<void> _openFile() async {
-    if (_izin?.fileUrl == null) {
+    if (_lembur?.fileSklUrl == null) {
       CustomSnackbar.showError(context, 'File tidak tersedia');
       return;
     }
@@ -62,9 +62,10 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final token = authProvider.token;
 
-      final downloadUrl = _izin!.getDownloadUrl(token) ?? _izin!.fileUrl!;
+      final downloadUrl =
+          _lembur!.getDownloadUrl(token) ?? _lembur!.fileSklUrl!;
 
-      // print('Opening file: $downloadUrl');
+      print('Opening file: $downloadUrl');
 
       final uri = Uri.parse(downloadUrl);
 
@@ -73,14 +74,14 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
       try {
         launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
       } catch (e) {
-        // print('platformDefault failed: $e');
+        print('platformDefault failed: $e');
       }
 
       if (!launched) {
         try {
           launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
         } catch (e) {
-          // print('externalApplication failed: $e');
+          print('externalApplication failed: $e');
         }
       }
 
@@ -88,7 +89,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
         try {
           launched = await launchUrl(uri, mode: LaunchMode.inAppWebView);
         } catch (e) {
-          // print('inAppWebView failed: $e');
+          print('inAppWebView failed: $e');
         }
       }
 
@@ -96,7 +97,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
         throw Exception('Tidak dapat membuka file');
       }
     } catch (e) {
-      // print('Error opening file: $e');
+      print('Error opening file: $e');
       if (!mounted) return;
 
       CustomSnackbar.showError(context, 'Gagal membuka file: ${e.toString()}');
@@ -130,7 +131,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                         ),
                       ),
                     )
-                  : _izin == null
+                  : _lembur == null
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -168,18 +169,14 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                         const SizedBox(height: 20),
                         _buildInfoCard(),
                         const SizedBox(height: 16),
-                        if (_izin!.keterangan != null &&
-                            _izin!.keterangan!.isNotEmpty)
-                          _buildKeteranganCard(),
-                        if (_izin!.fileUrl != null) ...[
-                          const SizedBox(height: 16),
+                        if (_lembur!.fileSklUrl != null) ...[
                           _buildFileLampiran(),
-                        ],
-                        if (_izin!.catatanAdmin != null) ...[
                           const SizedBox(height: 16),
-                          _buildAdminResponse(),
                         ],
-                        const SizedBox(height: 16),
+                        if (_lembur!.catatanAdmin != null) ...[
+                          _buildAdminResponse(),
+                          const SizedBox(height: 16),
+                        ],
                         _buildTimeline(),
                       ],
                     ),
@@ -222,7 +219,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
           ),
           const Spacer(),
           Text(
-            "Detail Izin",
+            "Detail Lembur",
             style: TextStyle(
               fontSize: screenWidth * 0.048,
               fontWeight: FontWeight.w600,
@@ -241,7 +238,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
     Color statusColor;
     IconData statusIcon;
 
-    switch (_izin!.status) {
+    switch (_lembur!.status) {
       case 'pending':
         statusColor = Colors.orange;
         statusIcon = Icons.pending;
@@ -279,19 +276,19 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _izin!.statusText,
+                  _lembur!.statusText,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: statusColor,
                   ),
                 ),
-                if (_izin!.diprosesPada != null)
+                if (_lembur!.diprosesPada != null)
                   Text(
                     DateFormat(
                       'dd MMMM yyyy, HH:mm',
                       'id_ID',
-                    ).format(_izin!.diprosesPada!),
+                    ).format(_lembur!.diprosesPada!),
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
               ],
@@ -303,22 +300,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
   }
 
   Widget _buildInfoCard() {
-    // Helper untuk mendapatkan warna kategori
-    Color getKategoriColor() {
-      switch (_izin!.kategoriIzin) {
-        case 'sakit':
-          return AppColors.error;
-        case 'izin':
-          return Colors.orange;
-        case 'cuti_tahunan':
-          return Colors.blue;
-        case 'cuti_khusus':
-          return AppColors.primary;
-        default:
-          return Colors.grey;
-      }
-    }
-
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -329,76 +310,21 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInfoRow(
-              'Kategori Izin',
-              _izin!.kategoriLabel,
-              Icons.category,
+              'Jenis Pengajuan',
+              'Lembur',
+              Icons.access_time,
               isHighlight: true,
-              customColor: getKategoriColor(),
+              customColor: Colors.deepPurple,
             ),
-
-            // Show sub kategori if cuti khusus
-            if (_izin!.subKategoriIzin != null) ...[
-              const SizedBox(height: 12),
-              _buildInfoRow(
-                'Jenis Cuti Khusus',
-                _izin!.deskripsiIzin,
-                Icons.event_note,
-              ),
-            ],
-
             const Divider(height: 24),
-            _buildInfoRow('Durasi', '${_izin!.durasiHari} Hari', Icons.timer),
-            const SizedBox(height: 12),
             _buildInfoRow(
-              'Mulai Dari',
+              'Tanggal Lembur',
               DateFormat(
                 'EEEE, dd MMMM yyyy',
                 'id_ID',
-              ).format(_izin!.tanggalMulai),
+              ).format(_lembur!.tanggal),
               Icons.calendar_today,
             ),
-            const SizedBox(height: 12),
-            _buildInfoRow(
-              'Sampai',
-              DateFormat(
-                'EEEE, dd MMMM yyyy',
-                'id_ID',
-              ).format(_izin!.tanggalSelesai),
-              Icons.event,
-            ),
-
-            // Show durasi otomatis info for cuti khusus
-            if (_izin!.durasiOtomatis != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Durasi otomatis: ${_izin!.durasiOtomatis} hari kerja',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -448,45 +374,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
     );
   }
 
-  Widget _buildKeteranganCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.description,
-                  size: 20,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Keterangan',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _izin!.keterangan!,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black87,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildFileLampiran() {
     return Card(
       elevation: 0,
@@ -517,7 +404,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Dokumen Pendukung',
+                      'Surat Keterangan Lembur (SKL)',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -527,7 +414,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                     Text(
                       _isDownloading
                           ? 'Membuka file...'
-                          : 'Tap untuk membuka file PDF',
+                          : 'Tap untuk membuka file',
                       style: TextStyle(
                         fontSize: 12,
                         color: _isDownloading ? AppColors.primary : Colors.grey,
@@ -559,7 +446,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
   Widget _buildAdminResponse() {
     return Card(
       elevation: 0,
-      color: _izin!.status == 'disetujui'
+      color: _lembur!.status == 'disetujui'
           ? AppColors.success.withOpacity(0.05)
           : AppColors.error.withOpacity(0.05),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -571,11 +458,11 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
             Row(
               children: [
                 Icon(
-                  _izin!.status == 'disetujui'
+                  _lembur!.status == 'disetujui'
                       ? Icons.check_circle
                       : Icons.cancel,
                   size: 20,
-                  color: _izin!.status == 'disetujui'
+                  color: _lembur!.status == 'disetujui'
                       ? AppColors.success
                       : AppColors.error,
                 ),
@@ -588,17 +475,17 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              _izin!.catatanAdmin!,
+              _lembur!.catatanAdmin!,
               style: const TextStyle(
                 fontSize: 14,
                 color: Colors.black87,
                 height: 1.5,
               ),
             ),
-            if (_izin!.diprosesOleh != null) ...[
+            if (_lembur!.diprosesOleh != null) ...[
               const SizedBox(height: 12),
               Text(
-                'Diproses oleh: ${_izin!.diprosesOleh}',
+                'Diproses oleh: ${_lembur!.diprosesOleh}',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey.shade600,
@@ -638,26 +525,26 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               DateFormat(
                 'dd MMMM yyyy, HH:mm',
                 'id_ID',
-              ).format(_izin!.createdAt),
+              ).format(_lembur!.createdAt),
               Icons.send,
               AppColors.primary,
               isFirst: true,
             ),
-            if (_izin!.diprosesPada != null)
+            if (_lembur!.diprosesPada != null)
               _buildTimelineItem(
-                _izin!.status == 'disetujui'
+                _lembur!.status == 'disetujui'
                     ? 'Disetujui'
-                    : _izin!.status == 'ditolak'
+                    : _lembur!.status == 'ditolak'
                     ? 'Ditolak'
                     : 'Dibatalkan',
                 DateFormat(
                   'dd MMMM yyyy, HH:mm',
                   'id_ID',
-                ).format(_izin!.diprosesPada!),
-                _izin!.status == 'disetujui'
+                ).format(_lembur!.diprosesPada!),
+                _lembur!.status == 'disetujui'
                     ? Icons.check_circle
                     : Icons.cancel,
-                _izin!.status == 'disetujui'
+                _lembur!.status == 'disetujui'
                     ? AppColors.success
                     : AppColors.error,
                 isLast: true,

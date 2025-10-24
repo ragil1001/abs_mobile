@@ -1,13 +1,13 @@
 import '../models/presensi_model.dart';
-import '../services/api_service.dart';
+import '../services/dio_service.dart';
 
 class PresensiRepository {
-  final ApiService _apiService = ApiService();
+  final DioService _dioService = DioService();
 
   /// Get data presensi untuk homepage
   Future<PresensiData> getPresensiData() async {
     try {
-      final response = await _apiService.get('/mobile/presensi/data');
+      final response = await _dioService.get('/mobile/presensi/data');
 
       if (response['success'] == true) {
         return PresensiData.fromJson(response['data']);
@@ -22,7 +22,7 @@ class PresensiRepository {
   /// Get statistik periode untuk data absensi page
   Future<StatistikPeriode> getStatistikPeriode(String bulan) async {
     try {
-      final response = await _apiService.get(
+      final response = await _dioService.get(
         '/mobile/presensi/statistik-periode?bulan=$bulan',
       );
 

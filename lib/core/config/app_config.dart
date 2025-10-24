@@ -3,7 +3,8 @@ class AppConfig {
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; // Android emulator
   // static const String baseUrl =
   //     'http://10.70.173.254:8000/api'; // iOS simulator
-  static const String baseUrl = 'https://reuse-mart.com/api'; // Production
+  static const String baseUrl =
+      'https://backend-app.reuse-mart.com/api'; // Production
 
   static const String mobileApiPrefix = '/mobile';
 

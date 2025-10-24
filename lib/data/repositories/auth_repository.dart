@@ -1,129 +1,185 @@
 // lib/data/repositories/auth_repository.dart
-import 'dart:io'; // Import ini untuk Platform
+import 'dart:io';
 import '../models/karyawan_model.dart';
 import '../models/auth_response_model.dart';
-import '../services/api_service.dart';
+import '../services/dio_service.dart';
 import '../services/storage_service.dart';
 import '../../core/config/app_config.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthRepository {
-  final ApiService _apiService = ApiService();
+  final DioService _dioService = DioService();
   final StorageService _storageService = StorageService();
 
-  /// Login karyawan
+  /// Login karyawan - Creates unlimited session
   Future<AuthResponse> login(String username, String password) async {
     try {
-      final response = await _apiService.post(AppConfig.loginEndpoint, {
+      debugPrint('🌐 Sending login request...');
+
+      final response = await _dioService.post(AppConfig.loginEndpoint, {
         'username': username,
         'password': password,
       });
 
-      print('=== LOGIN DEBUG ===');
-      print('Full response: $response');
-      print('Response type: ${response.runtimeType}');
-      print('Success: ${response['success']}');
-      print('Data: ${response['data']}');
-      print('Data type: ${response['data']?.runtimeType}');
+      debugPrint('📥 Login response received: $response');
 
-      if (response['success'] == true) {
-        final data = response['data'];
-
-        if (data == null) {
-          throw ApiException('Data response kosong');
-        }
-
-        // Validate data is a Map
-        if (data is! Map<String, dynamic>) {
-          print('ERROR: Data is not a Map, it is: ${data.runtimeType}');
-          throw ApiException('Format data response tidak valid');
-        }
-
-        print('Token: ${data['token']}');
-        print('Karyawan data: ${data['karyawan']}');
-        print('Karyawan type: ${data['karyawan']?.runtimeType}');
-
-        // Validate karyawan data exists and is a Map
-        if (data['karyawan'] == null) {
-          throw ApiException('Data karyawan tidak ditemukan');
-        }
-
-        if (data['karyawan'] is! Map<String, dynamic>) {
-          print(
-            'ERROR: Karyawan is not a Map, it is: ${data['karyawan'].runtimeType}',
-          );
-          throw ApiException('Format data karyawan tidak valid');
-        }
-
-        final authResponse = AuthResponse.fromJson(data);
-
-        // Save token to local storage
-        await _storageService.saveToken(authResponse.token);
-
-        print('Login successful!');
-        return authResponse;
-      } else {
-        throw ApiException(response['message'] ?? 'Login gagal');
+      // Cek apakah response null
+      if (response == null) {
+        throw ApiException(
+          'Server tidak memberikan response',
+          null,
+          'server_error',
+        );
       }
+
+      // Cek success flag
+      if (response['success'] != true) {
+        final message = response['message'] ?? 'Login gagal';
+        debugPrint('❌ Login failed: $message');
+
+        // Tentukan error type berdasarkan message
+        String errorType = 'validation';
+        if (message.toLowerCase().contains('tidak aktif')) {
+          errorType = 'account_inactive';
+        }
+
+        throw ApiException(message, 422, errorType);
+      }
+
+      // Cek data
+      final data = response['data'];
+      if (data == null) {
+        throw ApiException('Data response kosong', null, 'server_error');
+      }
+
+      if (data is! Map<String, dynamic>) {
+        throw ApiException(
+          'Format data response tidak valid',
+          null,
+          'server_error',
+        );
+      }
+
+      // Cek karyawan data
+      if (data['karyawan'] == null) {
+        throw ApiException(
+          'Data karyawan tidak ditemukan',
+          null,
+          'server_error',
+        );
+      }
+
+      if (data['karyawan'] is! Map<String, dynamic>) {
+        throw ApiException(
+          'Format data karyawan tidak valid',
+          null,
+          'server_error',
+        );
+      }
+
+      // Parse response
+      final authResponse = AuthResponse.fromJson(data);
+
+      // Save token to local storage
+      await _storageService.saveToken(authResponse.token);
+
+      debugPrint('✅ Login response processed successfully');
+      debugPrint('   Token saved to storage');
+
+      return authResponse;
     } on ApiException {
+      // Re-throw ApiException as is
       rethrow;
-    } catch (e, stackTrace) {
-      print('=== LOGIN ERROR ===');
-      print('Error: $e');
-      print('Stack trace: $stackTrace');
-      throw ApiException('Terjadi kesalahan saat login: ${e.toString()}');
+    } catch (e) {
+      debugPrint('❌ Unexpected login error: $e');
+      throw ApiException(
+        'Terjadi kesalahan tidak terduga: ${e.toString()}',
+        null,
+        'unknown',
+      );
     }
   }
 
   /// Get current user profile
   Future<Karyawan> getCurrentUser() async {
     try {
-      final response = await _apiService.get(AppConfig.meEndpoint);
+      debugPrint('🌐 Fetching current user profile...');
 
-      print('=== GET CURRENT USER DEBUG ===');
-      print('Response: $response');
+      final response = await _dioService.get(AppConfig.meEndpoint);
 
       if (response['success'] == true) {
         if (response['data'] == null) {
-          throw ApiException('Data profil tidak ditemukan');
+          throw ApiException('Data profil tidak ditemukan', null, 'not_found');
         }
 
         if (response['data'] is! Map<String, dynamic>) {
-          throw ApiException('Format data profil tidak valid');
+          throw ApiException(
+            'Format data profil tidak valid',
+            null,
+            'server_error',
+          );
         }
 
+        debugPrint('✅ User profile fetched successfully');
         return Karyawan.fromJson(response['data']);
       } else {
         throw ApiException(
           response['message'] ?? 'Gagal mengambil data profil',
+          null,
+          'server_error',
         );
       }
-    } catch (e) {
-      print('Get current user error: $e');
+    } on ApiException {
       rethrow;
+    } catch (e) {
+      debugPrint('❌ Get user error: $e');
+      throw ApiException(
+        'Gagal mengambil data profil: ${e.toString()}',
+        null,
+        'unknown',
+      );
     }
   }
 
-  /// Logout
+  /// Logout - Backend deletes FCM tokens
   Future<void> logout() async {
     try {
-      // Delete token first for instant logout feel
-      await _storageService.deleteToken();
+      debugPrint('🌐 Calling logout API endpoint (WITH TOKEN)...');
 
-      // Then try to invalidate token on server (with timeout)
-      await _apiService
+      // Call API FIRST (while token still exists)
+      await _dioService
           .post(AppConfig.logoutEndpoint, {})
           .timeout(
-            const Duration(seconds: 3),
+            const Duration(seconds: 10),
             onTimeout: () {
-              // If server doesn't respond in 3 seconds, just continue
-              print('Logout API timeout - continuing anyway');
-              return {'success': true};
+              debugPrint('⚠️ Logout API timeout - continuing anyway');
+              return {'success': false, 'message': 'Timeout'};
             },
           );
+
+      debugPrint('✅ Logout API call completed');
+      debugPrint('   FCM tokens deleted by backend');
     } catch (e) {
-      // Even if API call fails, token is already deleted locally
-      print('Logout error: $e');
-      // Don't rethrow - logout should always succeed locally
+      debugPrint('❌ Logout API error: $e');
+      // Continue even if API fails - user wants to logout
+    } finally {
+      // Delete local token AFTER API call
+      try {
+        await _storageService.deleteToken();
+        debugPrint('✅ Local token deleted');
+      } catch (e) {
+        debugPrint('❌ Error deleting local token: $e');
+      }
+    }
+  }
+
+  /// Clear local session (for token invalidation)
+  Future<void> clearSession() async {
+    try {
+      await _storageService.deleteToken();
+      debugPrint('✅ Local session cleared');
+    } catch (e) {
+      debugPrint('❌ Error clearing session: $e');
     }
   }
 
@@ -134,7 +190,9 @@ class AuthRepository {
     required String confirmPassword,
   }) async {
     try {
-      final response = await _apiService
+      debugPrint('🌐 Sending change password request...');
+
+      final response = await _dioService
           .post(AppConfig.changePasswordEndpoint, {
             'current_password': currentPassword,
             'new_password': newPassword,
@@ -142,20 +200,36 @@ class AuthRepository {
           });
 
       if (response['success'] != true) {
-        throw ApiException(response['message'] ?? 'Gagal mengubah password');
+        final message = response['message'] ?? 'Gagal mengubah password';
+        throw ApiException(message, 422, 'validation');
       }
+
+      debugPrint('✅ Password changed successfully');
 
       // Clear token after password change
       await _storageService.deleteToken();
-    } catch (e) {
+    } on ApiException {
       rethrow;
+    } catch (e) {
+      debugPrint('❌ Change password error: $e');
+      throw ApiException(
+        'Gagal mengubah password: ${e.toString()}',
+        null,
+        'unknown',
+      );
     }
   }
 
   /// Check if user is logged in
   Future<bool> isLoggedIn() async {
     final token = await _storageService.getToken();
-    return token != null && token.isNotEmpty;
+    final hasToken = token != null && token.isNotEmpty;
+
+    debugPrint(
+      '🔍 Checking login status: ${hasToken ? "Logged in" : "Not logged in"}',
+    );
+
+    return hasToken;
   }
 
   /// Save remember me preference
@@ -176,8 +250,7 @@ class AuthRepository {
   /// Store FCM token to backend
   Future<void> storeFcmToken(String fcmToken) async {
     try {
-      // Detect platform
-      String deviceType = 'android'; // Default
+      String deviceType = 'android';
       String deviceName = '';
 
       if (Platform.isIOS) {
@@ -188,45 +261,34 @@ class AuthRepository {
         deviceName = 'Android Device';
       }
 
-      final response = await _apiService.post(AppConfig.storeFcmTokenEndpoint, {
+      debugPrint('📤 Storing FCM token to backend...');
+      debugPrint('   Token: ${fcmToken.substring(0, 30)}...');
+      debugPrint('   Device: $deviceType');
+
+      final response = await _dioService.post(AppConfig.storeFcmTokenEndpoint, {
         'token': fcmToken,
         'device_type': deviceType,
         'device_name': deviceName,
       });
 
       if (response['success'] != true) {
-        throw ApiException(response['message'] ?? 'Gagal menyimpan FCM token');
-      }
-
-      print('FCM token stored successfully');
-    } catch (e) {
-      print('Store FCM token error: $e');
-      rethrow;
-    }
-  }
-
-  /// Delete FCM token from backend
-  Future<void> deleteFcmToken(String fcmToken) async {
-    try {
-      print('🗑️ Deleting FCM token from backend...');
-      print('Token: ${fcmToken.substring(0, 20)}...');
-
-      // Kirim token sebagai body untuk DELETE request
-      final response = await _apiService.delete(
-        AppConfig.deleteFcmTokenEndpoint,
-        data: {'token': fcmToken},
-      );
-
-      if (response['success'] == true) {
-        print('✅ FCM token deleted from backend successfully');
-      } else {
-        print(
-          '⚠️ Failed to delete FCM token from backend: ${response['message']}',
+        throw ApiException(
+          response['message'] ?? 'Gagal menyimpan FCM token',
+          null,
+          'server_error',
         );
       }
+
+      debugPrint('✅ FCM token stored successfully in backend');
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      print('❌ Delete FCM token error: $e');
-      // Don't throw error, logout should continue
+      debugPrint('❌ Store FCM token error: $e');
+      throw ApiException(
+        'Gagal menyimpan FCM token: ${e.toString()}',
+        null,
+        'unknown',
+      );
     }
   }
 }

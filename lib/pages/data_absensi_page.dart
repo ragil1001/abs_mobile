@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'home_page.dart';
 import 'history_absensi_page.dart';
 import 'data_izin_page.dart';
 import '../components/bottom_curve_clipper.dart';
 import '../providers/presensi_provider.dart';
-import '../providers/auth_provider.dart';
 import '../components/shimmer_loading.dart';
 
 class DataAbsensiPage extends StatefulWidget {
-  const DataAbsensiPage({super.key});
+  final bool isForceLoading; // ✅ NEW parameter
+
+  const DataAbsensiPage({super.key, this.isForceLoading = false});
 
   @override
   State<DataAbsensiPage> createState() => _DataAbsensiPageState();
@@ -191,8 +191,9 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
   }
 
   String get _periodText {
-    if (_selectedPeriod == null || _periodOptions.isEmpty)
+    if (_selectedPeriod == null || _periodOptions.isEmpty) {
       return "Pilih Periode";
+    }
     final period = _periodOptions.firstWhere(
       (p) => p.value == _selectedPeriod,
       orElse: () => _periodOptions.isNotEmpty
@@ -212,10 +213,21 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
+    // Responsive sizing - adopsi dari home_page.dart
+    final bool isVerySmallScreen = screenWidth < 340;
+    final bool isSmallScreen = screenWidth >= 340 && screenWidth < 360;
+
+    final padding = screenWidth * 0.05;
+    final titleFontSize = (screenWidth * 0.052).clamp(16.0, 22.0);
+    final bodyFontSize = (screenWidth * 0.034).clamp(11.0, 15.0);
+    final smallFontSize = (screenWidth * 0.035).clamp(10.0, 13.0);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Consumer<PresensiProvider>(
         builder: (context, provider, child) {
+          final shouldShowShimmer =
+              widget.isForceLoading || provider.isLoadingStatistik;
           return Stack(
             children: [
               ClipPath(
@@ -236,38 +248,58 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                 onRefresh: () async {
                   _loadStatistik();
                 },
-                child: provider.isLoadingStatistik
-                    ? _buildShimmerLayout(screenWidth, screenHeight)
+                child: shouldShowShimmer
+                    ? _buildShimmerLayout(
+                        screenWidth,
+                        screenHeight,
+                        padding,
+                        titleFontSize,
+                      )
                     : SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+                        padding: EdgeInsets.fromLTRB(
+                          padding,
+                          screenHeight * 0.06,
+                          padding,
+                          screenHeight * 0.03,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               "Data Absensi",
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 20,
+                                fontSize: titleFontSize,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            SizedBox(height: screenHeight * 0.02),
                             if (provider.errorMessageStatistik != null)
                               _buildErrorContainer(
                                 provider.errorMessageStatistik!,
+                                bodyFontSize,
                               )
                             else if (provider.statistikPeriode == null)
-                              _buildEmptyContainer()
+                              _buildEmptyContainer(bodyFontSize)
                             else
                               _buildStatistikContainer(
                                 provider.statistikPeriode,
+                                screenWidth,
+                                screenHeight,
+                                bodyFontSize,
+                                smallFontSize,
+                                isVerySmallScreen,
                               ),
-                            const SizedBox(height: 20),
+                            SizedBox(height: screenHeight * 0.02),
                             _buildMenuCard(
                               icon: Icons.calendar_today,
                               title: "Data Absensi",
                               subtitle: "Lihat riwayat absensi",
+                              screenWidth: screenWidth,
+                              screenHeight: screenHeight,
+                              bodyFontSize: bodyFontSize,
+                              smallFontSize: smallFontSize,
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -281,6 +313,10 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                               icon: Icons.description,
                               title: "Data Izin",
                               subtitle: "Data Izin / Cuti yang sudah disetujui",
+                              screenWidth: screenWidth,
+                              screenHeight: screenHeight,
+                              bodyFontSize: bodyFontSize,
+                              smallFontSize: smallFontSize,
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -290,7 +326,7 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                                 );
                               },
                             ),
-                            const SizedBox(height: 25),
+                            SizedBox(height: screenHeight * 0.025),
                           ],
                         ),
                       ),
@@ -302,25 +338,36 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     );
   }
 
-  Widget _buildShimmerLayout(double screenWidth, double screenHeight) {
+  Widget _buildShimmerLayout(
+    double screenWidth,
+    double screenHeight,
+    double padding,
+    double titleFontSize,
+  ) {
     return ShimmerLoading(
       child: SingleChildScrollView(
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+        padding: EdgeInsets.fromLTRB(
+          padding,
+          screenHeight * 0.06,
+          padding,
+          screenHeight * 0.03,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Text
-            ShimmerBox(width: screenWidth * 0.4, height: 20, borderRadius: 4),
-            const SizedBox(height: 20),
-            // Rekap Container
+            ShimmerBox(
+              width: screenWidth * 0.4,
+              height: titleFontSize,
+              borderRadius: 4,
+            ),
+            SizedBox(height: screenHeight * 0.02),
             ShimmerBox(
               width: double.infinity,
               height: screenHeight * 0.35,
               borderRadius: 16,
             ),
-            const SizedBox(height: 20),
-            // Menu Cards
+            SizedBox(height: screenHeight * 0.02),
             ShimmerBox(
               width: double.infinity,
               height: (screenHeight * 0.08).clamp(60.0, 70.0),
@@ -332,14 +379,14 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
               height: (screenHeight * 0.08).clamp(60.0, 70.0),
               borderRadius: 12,
             ),
-            const SizedBox(height: 25),
+            SizedBox(height: screenHeight * 0.025),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildErrorContainer(String error) {
+  Widget _buildErrorContainer(String error, double bodyFontSize) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -359,7 +406,10 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           const SizedBox(height: 12),
           Text(
             error,
-            style: TextStyle(color: Colors.red.shade700),
+            style: TextStyle(
+              color: Colors.red.shade700,
+              fontSize: bodyFontSize,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -367,7 +417,7 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     );
   }
 
-  Widget _buildEmptyContainer() {
+  Widget _buildEmptyContainer(double bodyFontSize) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -381,34 +431,36 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           ),
         ],
       ),
-      child: const Center(
+      child: Center(
         child: Padding(
-          padding: EdgeInsets.all(40),
-          child: Text('Tidak ada data statistik'),
+          padding: const EdgeInsets.all(40),
+          child: Text(
+            'Tidak ada data statistik',
+            style: TextStyle(fontSize: bodyFontSize),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatistikContainer(dynamic statistik) {
+  Widget _buildStatistikContainer(
+    dynamic statistik,
+    double screenWidth,
+    double screenHeight,
+    double bodyFontSize,
+    double smallFontSize,
+    bool isVerySmallScreen,
+  ) {
     if (_periodOptions.isEmpty) {
-      return _buildEmptyContainer();
+      return _buildEmptyContainer(bodyFontSize);
     }
 
-    // Get periode info
     final period = _periodOptions.firstWhere(
       (p) => p.value == _selectedPeriod,
       orElse: () => _periodOptions.first,
     );
 
-    // CRITICAL: Hitung jumlah hari dalam periode
     final daysInPeriod = period.endDate.difference(period.startDate).inDays + 1;
-
-    // LOGIKA BARU untuk progress bar:
-    // 1. Hadir, Izin, Alpa → max = daysInPeriod
-    // 2. Sakit, Cuti → max = izin (subset dari izin)
-    // 3. Lembur, Pulang Cepat, TPP → max = hadir (subset dari hadir)
-    // 4. Terlambat → max = hadir (tapi tidak mengurangi quota Lembur/PC/TPP)
 
     final hadir = statistik.hadir;
     final izin = statistik.izin;
@@ -420,8 +472,14 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     final pulangCepat = statistik.pulangCepat;
     final tidakPresensiPulang = statistik.tidakPresensiPulang;
 
+    // Responsive font sizes
+    final headerFontSize = (screenWidth * 0.045).clamp(15.0, 18.0);
+    final periodButtonFontSize = (screenWidth * 0.032).clamp(11.0, 13.0);
+    final statTitleFontSize = (screenWidth * 0.034).clamp(12.0, 14.0);
+    final statValueFontSize = (screenWidth * 0.032).clamp(11.0, 13.0);
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isVerySmallScreen ? 12 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -440,33 +498,47 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                "Rekap Absensi",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              Flexible(
+                child: Text(
+                  "Rekap Absensi",
+                  style: TextStyle(
+                    fontSize: headerFontSize,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
+              SizedBox(width: screenWidth * 0.02),
               InkWell(
                 onTap: _pickPeriod,
                 borderRadius: BorderRadius.circular(23),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isVerySmallScreen ? 8 : 12,
+                    vertical: isVerySmallScreen ? 8 : 10,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFA726),
                     borderRadius: BorderRadius.circular(23),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _periodText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          _periodText,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: periodButtonFontSize,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Icon(Icons.arrow_drop_down, color: Colors.white),
+                      Icon(
+                        Icons.arrow_drop_down,
+                        color: Colors.white,
+                        size: isVerySmallScreen ? 18 : 20,
+                      ),
                     ],
                   ),
                 ),
@@ -474,7 +546,7 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: isVerySmallScreen ? 8 : 12),
           const Divider(thickness: 1, color: Colors.black26),
 
           // STATISTIK UTAMA: Hadir, Izin, Alpa
@@ -487,9 +559,13 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                   valueColor: hadir > 0 ? Colors.green : Colors.black87,
                   barColor: hadir > 0 ? Colors.green : Colors.grey,
                   progress: hadir / daysInPeriod,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
-              _buildVerticalDivider(),
+              _buildVerticalDivider(isVerySmallScreen),
               Expanded(
                 child: _buildRekapItem(
                   title: "Izin",
@@ -497,9 +573,13 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                   valueColor: izin > 0 ? Colors.blue : Colors.black87,
                   barColor: izin > 0 ? Colors.blue : Colors.grey,
                   progress: izin / daysInPeriod,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
-              _buildVerticalDivider(),
+              _buildVerticalDivider(isVerySmallScreen),
               Expanded(
                 child: _buildRekapItem(
                   title: "Alpa",
@@ -507,15 +587,19 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                   valueColor: alpa > 0 ? Colors.red : Colors.black87,
                   barColor: alpa > 0 ? Colors.red : Colors.grey,
                   progress: alpa / daysInPeriod,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: isVerySmallScreen ? 8 : 12),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // SAKIT & CUTI (subset dari Izin)
+          // SAKIT & CUTI
           Row(
             children: [
               Expanded(
@@ -524,28 +608,34 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                   value: "$sakit Hari",
                   valueColor: sakit > 0 ? Colors.orange : Colors.black87,
                   barColor: sakit > 0 ? Colors.orange : Colors.grey,
-                  // CRITICAL: max bar = izin (bukan daysInPeriod)
                   progress: izin > 0 ? (sakit / izin) : 0.0,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
-              _buildVerticalDivider(),
+              _buildVerticalDivider(isVerySmallScreen),
               Expanded(
                 child: _buildRekapItem(
                   title: "Cuti",
                   value: "$cuti Hari",
                   valueColor: cuti > 0 ? Colors.purple : Colors.black87,
                   barColor: cuti > 0 ? Colors.purple : Colors.grey,
-                  // CRITICAL: max bar = izin (bukan daysInPeriod)
                   progress: izin > 0 ? (cuti / izin) : 0.0,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: isVerySmallScreen ? 8 : 12),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // LEMBUR & TERLAMBAT (terkait Hadir)
+          // LEMBUR & TERLAMBAT
           Row(
             children: [
               Expanded(
@@ -554,28 +644,34 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                   value: "$lembur Kali",
                   valueColor: lembur > 0 ? Colors.teal : Colors.black87,
                   barColor: lembur > 0 ? Colors.teal : Colors.grey,
-                  // CRITICAL: max bar = hadir
                   progress: hadir > 0 ? (lembur / hadir) : 0.0,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
-              _buildVerticalDivider(),
+              _buildVerticalDivider(isVerySmallScreen),
               Expanded(
                 child: _buildRekapItem(
                   title: "Terlambat",
                   value: "$terlambat Kali",
                   valueColor: terlambat > 0 ? Colors.amber : Colors.black87,
                   barColor: terlambat > 0 ? Colors.amber : Colors.grey,
-                  // CRITICAL: max bar = hadir
                   progress: hadir > 0 ? (terlambat / hadir) : 0.0,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: isVerySmallScreen ? 8 : 12),
           const Divider(thickness: 1, color: Colors.black26),
 
-          // PULANG CEPAT & TIDAK ABSEN PULANG (subset dari Hadir)
+          // PULANG CEPAT & TIDAK ABSEN PULANG
           Row(
             children: [
               Expanded(
@@ -586,21 +682,27 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
                       ? Colors.deepOrange
                       : Colors.black87,
                   barColor: pulangCepat > 0 ? Colors.deepOrange : Colors.grey,
-                  // CRITICAL: max bar = hadir
                   progress: hadir > 0 ? (pulangCepat / hadir) : 0.0,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
-              _buildVerticalDivider(),
+              _buildVerticalDivider(isVerySmallScreen),
               Expanded(
                 child: _buildRekapItem(
-                  title: "Tidak Absen Pulang",
+                  title: "Tidak Presensi Pulang",
                   value: "$tidakPresensiPulang Kali",
                   valueColor: tidakPresensiPulang > 0
                       ? Colors.pink
                       : Colors.black87,
                   barColor: tidakPresensiPulang > 0 ? Colors.pink : Colors.grey,
-                  // CRITICAL: max bar = hadir
                   progress: hadir > 0 ? (tidakPresensiPulang / hadir) : 0.0,
+                  screenWidth: screenWidth,
+                  titleFontSize: statTitleFontSize,
+                  valueFontSize: statValueFontSize,
+                  isVerySmallScreen: isVerySmallScreen,
                 ),
               ),
             ],
@@ -616,36 +718,40 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     required Color valueColor,
     required Color barColor,
     required double progress,
+    required double screenWidth,
+    required double titleFontSize,
+    required double valueFontSize,
+    required bool isVerySmallScreen,
   }) {
-    // Clamp progress between 0 and 1
     final clampedProgress = progress.clamp(0.0, 1.0);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: EdgeInsets.symmetric(horizontal: isVerySmallScreen ? 3 : 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: titleFontSize,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 1),
+          SizedBox(height: isVerySmallScreen ? 0 : 1),
           Text(
             value,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: valueFontSize,
               fontWeight: FontWeight.normal,
               color: valueColor,
             ),
           ),
-          const SizedBox(height: 4),
-          // Progress bar container
+          SizedBox(height: isVerySmallScreen ? 3 : 4),
           Container(
-            height: 6,
+            height: isVerySmallScreen ? 5 : 6,
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey.shade200,
@@ -667,33 +773,76 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     );
   }
 
-  Widget _buildVerticalDivider() {
-    return Container(width: 1, height: 50, color: Colors.black26);
+  Widget _buildVerticalDivider(bool isVerySmallScreen) {
+    return Container(
+      width: 1,
+      height: isVerySmallScreen ? 40 : 50,
+      color: Colors.black26,
+    );
   }
 
   Widget _buildMenuCard({
     required IconData icon,
     required String title,
     required String subtitle,
+    required double screenWidth,
+    required double screenHeight,
+    required double bodyFontSize,
+    required double smallFontSize,
     required VoidCallback onTap,
   }) {
+    final cardHeight = (screenHeight * 0.08).clamp(60.0, 70.0);
+    final iconSize = (screenWidth * 0.06).clamp(20.0, 26.0);
+
     return Card(
       elevation: 2,
       color: Colors.white,
       margin: const EdgeInsets.symmetric(vertical: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.orange),
-        title: Text(
-          title,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: cardHeight,
+          padding: EdgeInsets.symmetric(
+            horizontal: screenWidth * 0.04,
+            vertical: screenHeight * 0.01,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.orange, size: iconSize),
+              SizedBox(width: screenWidth * 0.03),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: bodyFontSize,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: smallFontSize,
+                        color: Colors.black54,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey, size: iconSize),
+            ],
+          ),
+        ),
       ),
     );
   }

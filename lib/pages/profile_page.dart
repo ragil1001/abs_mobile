@@ -45,7 +45,6 @@ class _ProfilePageState extends State<ProfilePage> {
       await authProvider.initAuth();
     }
 
-    // Ensure minimum loading time for smooth UX
     final elapsed = DateTime.now().difference(startTime);
     if (elapsed < const Duration(milliseconds: 300)) {
       await Future.delayed(const Duration(milliseconds: 300) - elapsed);
@@ -60,13 +59,38 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+
+    final bool isVerySmallScreen = screenWidth < 340;
+
     final padding = screenWidth * 0.06;
+    final headerFontSize = (screenWidth * 0.048).clamp(16.0, 20.0);
+    final nameFontSize = (screenWidth * 0.058).clamp(18.0, 24.0);
+    final subtitleFontSize = (screenWidth * 0.036).clamp(12.0, 15.0);
+    final labelFontSize = (screenWidth * 0.036).clamp(12.0, 15.0);
+    final valueFontSize = (screenWidth * 0.036).clamp(12.0, 15.0);
+    final buttonTextFontSize = (screenWidth * 0.04).clamp(13.0, 17.0);
+    final avatarSize = (screenWidth * 0.24).clamp(70.0, 100.0);
+    final iconSize = (screenWidth * 0.12).clamp(35.0, 50.0);
+    final buttonIconSize = (screenWidth * 0.11).clamp(36.0, 46.0);
+    final arrowIconSize = (screenWidth * 0.045).clamp(14.0, 18.0);
+    final backButtonSize = (screenWidth * 0.1).clamp(36.0, 42.0);
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 254, 253, 253),
       body: SafeArea(
         child: _isLoading
-            ? _buildShimmerLayout(screenWidth, screenHeight, padding)
+            ? _buildShimmerLayout(
+                screenWidth,
+                screenHeight,
+                padding,
+                avatarSize,
+                nameFontSize,
+                subtitleFontSize,
+                labelFontSize,
+                buttonIconSize,
+                backButtonSize,
+                isVerySmallScreen,
+              )
             : Consumer<AuthProvider>(
                 builder: (context, authProvider, child) {
                   final karyawan = authProvider.currentUser;
@@ -77,7 +101,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   return Column(
                     children: [
-                      // ===== MINIMAL HEADER =====
                       Container(
                         padding: EdgeInsets.symmetric(
                           horizontal: padding,
@@ -89,15 +112,15 @@ class _ProfilePageState extends State<ProfilePage> {
                             GestureDetector(
                               onTap: () => Navigator.pop(context),
                               child: Container(
-                                width: screenWidth * 0.1,
-                                height: screenWidth * 0.1,
+                                width: backButtonSize,
+                                height: backButtonSize,
                                 decoration: BoxDecoration(
                                   color: AppColors.primary.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(
                                   Icons.arrow_back_ios_new,
-                                  size: screenWidth * 0.045,
+                                  size: arrowIconSize,
                                   color: Colors.black87,
                                 ),
                               ),
@@ -106,32 +129,38 @@ class _ProfilePageState extends State<ProfilePage> {
                             Text(
                               "Profile",
                               style: TextStyle(
-                                fontSize: screenWidth * 0.048,
+                                fontSize: headerFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.black87,
                                 letterSpacing: 0.5,
                               ),
                             ),
                             const Spacer(),
-                            SizedBox(width: screenWidth * 0.1),
+                            SizedBox(width: backButtonSize),
                           ],
                         ),
                       ),
 
-                      // ===== SCROLLABLE CONTENT =====
                       Expanded(
                         child: SingleChildScrollView(
                           child: Column(
                             children: [
-                              SizedBox(height: screenHeight * 0.03),
+                              SizedBox(
+                                height: isVerySmallScreen
+                                    ? screenHeight * 0.02
+                                    : screenHeight * 0.03,
+                              ),
 
-                              // ===== PROFILE CARD =====
                               Padding(
                                 padding: EdgeInsets.symmetric(
                                   horizontal: padding,
                                 ),
                                 child: Container(
-                                  padding: EdgeInsets.all(screenWidth * 0.05),
+                                  padding: EdgeInsets.all(
+                                    isVerySmallScreen
+                                        ? screenWidth * 0.04
+                                        : screenWidth * 0.05,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(20),
@@ -145,10 +174,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                   ),
                                   child: Column(
                                     children: [
-                                      // Avatar
                                       Container(
-                                        width: screenWidth * 0.24,
-                                        height: screenWidth * 0.24,
+                                        width: avatarSize,
+                                        height: avatarSize,
                                         decoration: BoxDecoration(
                                           color: AppColors.primary.withOpacity(
                                             0.1,
@@ -157,17 +185,19 @@ class _ProfilePageState extends State<ProfilePage> {
                                         ),
                                         child: Icon(
                                           Icons.person_outline,
-                                          size: screenWidth * 0.12,
+                                          size: iconSize,
                                           color: AppColors.primary,
                                         ),
                                       ),
-                                      SizedBox(height: screenHeight * 0.02),
-
-                                      // Name
+                                      SizedBox(
+                                        height: isVerySmallScreen
+                                            ? screenHeight * 0.015
+                                            : screenHeight * 0.02,
+                                      ),
                                       Text(
                                         karyawan.nama,
                                         style: TextStyle(
-                                          fontSize: screenWidth * 0.058,
+                                          fontSize: nameFontSize,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.black87,
                                           letterSpacing: 0.3,
@@ -175,82 +205,108 @@ class _ProfilePageState extends State<ProfilePage> {
                                         textAlign: TextAlign.center,
                                       ),
                                       SizedBox(height: screenHeight * 0.005),
-
-                                      // Position & Division
                                       Text(
-                                        "${karyawan.jabatan.nama} • ${karyawan.divisi.nama}",
+                                        "${karyawan.jabatan.nama.isNotEmpty ? karyawan.jabatan.nama : '-'} • "
+                                        "${karyawan.divisi.nama.isNotEmpty ? karyawan.divisi.nama : '-'}",
                                         style: TextStyle(
-                                          fontSize: screenWidth * 0.036,
+                                          fontSize: subtitleFontSize,
                                           color: Colors.black45,
                                           fontWeight: FontWeight.w500,
                                         ),
                                         textAlign: TextAlign.center,
                                       ),
-                                      SizedBox(height: screenHeight * 0.02),
-
-                                      // Divider
+                                      SizedBox(
+                                        height: isVerySmallScreen
+                                            ? screenHeight * 0.015
+                                            : screenHeight * 0.02,
+                                      ),
                                       Container(
                                         height: 1,
                                         color: const Color(0xFFF0F0F0),
                                       ),
-                                      SizedBox(height: screenHeight * 0.025),
-
-                                      // Info Items
+                                      SizedBox(
+                                        height: isVerySmallScreen
+                                            ? screenHeight * 0.02
+                                            : screenHeight * 0.025,
+                                      ),
                                       _buildInfoItem(
                                         "NIK",
                                         karyawan.nik,
                                         screenWidth,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
                                         "Divisi",
-                                        karyawan.divisi.nama,
+                                        karyawan.divisi.nama.isNotEmpty
+                                            ? karyawan.divisi.nama
+                                            : '-',
                                         screenWidth,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
                                         "Jabatan",
                                         karyawan.jabatan.nama,
                                         screenWidth,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
                                         "Project",
                                         karyawan.project?.nama ??
                                             "Belum ada project",
                                         screenWidth,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
                                         "No Telepon",
                                         karyawan.noTelepon,
                                         screenWidth,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
                                         "Jenis Kelamin",
                                         karyawan.jenisKelaminText,
                                         screenWidth,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
                                         "Tanggal Lahir",
                                         karyawan.formattedTanggalLahir,
                                         screenWidth,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
                                       ),
                                       _buildInfoItem(
                                         "Tanggal Bergabung",
                                         karyawan.formattedTanggalBergabung,
                                         screenWidth,
-                                      ),
-                                      _buildInfoItem(
-                                        "Username",
-                                        karyawan.username,
-                                        screenWidth,
-                                        isLast: true,
+                                        labelFontSize,
+                                        valueFontSize,
+                                        isVerySmallScreen,
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
 
-                              SizedBox(height: screenHeight * 0.025),
+                              SizedBox(
+                                height: isVerySmallScreen
+                                    ? screenHeight * 0.02
+                                    : screenHeight * 0.025,
+                              ),
 
-                              // ===== ACTION BUTTONS =====
                               Padding(
                                 padding: EdgeInsets.symmetric(
                                   horizontal: padding,
@@ -262,6 +318,10 @@ class _ProfilePageState extends State<ProfilePage> {
                                       Icons.lock_outline,
                                       screenWidth,
                                       screenHeight,
+                                      buttonIconSize,
+                                      buttonTextFontSize,
+                                      arrowIconSize,
+                                      isVerySmallScreen,
                                       () {
                                         Navigator.push(
                                           context,
@@ -272,20 +332,39 @@ class _ProfilePageState extends State<ProfilePage> {
                                         );
                                       },
                                     ),
-                                    SizedBox(height: screenHeight * 0.015),
+                                    SizedBox(
+                                      height: isVerySmallScreen
+                                          ? screenHeight * 0.012
+                                          : screenHeight * 0.015,
+                                    ),
                                     _buildActionButton(
                                       "Logout",
                                       Icons.logout,
                                       screenWidth,
                                       screenHeight,
-                                      () => _showLogoutDialog(context),
+                                      buttonIconSize,
+                                      buttonTextFontSize,
+                                      arrowIconSize,
+                                      isVerySmallScreen,
+                                      () => _showLogoutDialog(
+                                        context,
+                                        screenWidth,
+                                        screenHeight,
+                                        headerFontSize,
+                                        subtitleFontSize,
+                                        buttonTextFontSize,
+                                      ),
                                       isLogout: true,
                                     ),
                                   ],
                                 ),
                               ),
 
-                              SizedBox(height: screenHeight * 0.04),
+                              SizedBox(
+                                height: isVerySmallScreen
+                                    ? screenHeight * 0.03
+                                    : screenHeight * 0.04,
+                              ),
                             ],
                           ),
                         ),
@@ -302,10 +381,16 @@ class _ProfilePageState extends State<ProfilePage> {
     double screenWidth,
     double screenHeight,
     double padding,
+    double avatarSize,
+    double nameFontSize,
+    double subtitleFontSize,
+    double labelFontSize,
+    double buttonIconSize,
+    double backButtonSize,
+    bool isVerySmallScreen,
   ) {
     return Column(
       children: [
-        // Header
         Container(
           padding: EdgeInsets.symmetric(
             horizontal: padding,
@@ -316,71 +401,87 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               ShimmerLoading(
                 child: ShimmerBox(
-                  width: screenWidth * 0.1,
-                  height: screenWidth * 0.1,
+                  width: backButtonSize,
+                  height: backButtonSize,
                   borderRadius: 12,
                 ),
               ),
               const Spacer(),
               ShimmerLoading(
                 child: ShimmerBox(
-                  width: screenWidth * 0.3,
-                  height: 20,
+                  width: screenWidth * 0.25,
+                  height: (screenWidth * 0.048).clamp(16.0, 20.0),
                   borderRadius: 4,
                 ),
               ),
               const Spacer(),
-              SizedBox(width: screenWidth * 0.1),
+              SizedBox(width: backButtonSize),
             ],
           ),
         ),
-
         Expanded(
           child: SingleChildScrollView(
             child: Column(
               children: [
-                SizedBox(height: screenHeight * 0.03),
-                // Profile card shimmer
+                SizedBox(
+                  height: isVerySmallScreen
+                      ? screenHeight * 0.02
+                      : screenHeight * 0.03,
+                ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: padding),
                   child: ShimmerLoading(
                     child: Container(
-                      padding: EdgeInsets.all(screenWidth * 0.05),
+                      padding: EdgeInsets.all(
+                        isVerySmallScreen
+                            ? screenWidth * 0.04
+                            : screenWidth * 0.05,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
                         children: [
-                          // Avatar
                           ShimmerBox(
-                            width: screenWidth * 0.24,
-                            height: screenWidth * 0.24,
-                            borderRadius: screenWidth * 0.12,
+                            width: avatarSize,
+                            height: avatarSize,
+                            borderRadius: avatarSize / 2,
                           ),
-                          SizedBox(height: screenHeight * 0.02),
-                          // Name
+                          SizedBox(
+                            height: isVerySmallScreen
+                                ? screenHeight * 0.015
+                                : screenHeight * 0.02,
+                          ),
                           ShimmerBox(
                             width: screenWidth * 0.5,
-                            height: 20,
+                            height: nameFontSize,
                             borderRadius: 4,
                           ),
                           const SizedBox(height: 8),
-                          // Position
                           ShimmerBox(
                             width: screenWidth * 0.4,
-                            height: 16,
+                            height: subtitleFontSize,
                             borderRadius: 4,
                           ),
-                          SizedBox(height: screenHeight * 0.02),
+                          SizedBox(
+                            height: isVerySmallScreen
+                                ? screenHeight * 0.015
+                                : screenHeight * 0.02,
+                          ),
                           Container(height: 1, color: const Color(0xFFF0F0F0)),
-                          SizedBox(height: screenHeight * 0.025),
-                          // Info items
+                          SizedBox(
+                            height: isVerySmallScreen
+                                ? screenHeight * 0.02
+                                : screenHeight * 0.025,
+                          ),
                           ...List.generate(
-                            9,
+                            8,
                             (index) => Padding(
                               padding: EdgeInsets.only(
-                                bottom: screenWidth * 0.04,
+                                bottom: isVerySmallScreen
+                                    ? screenWidth * 0.03
+                                    : screenWidth * 0.04,
                               ),
                               child: Row(
                                 mainAxisAlignment:
@@ -388,12 +489,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                 children: [
                                   ShimmerBox(
                                     width: screenWidth * 0.3,
-                                    height: 14,
+                                    height: labelFontSize,
                                     borderRadius: 4,
                                   ),
                                   ShimmerBox(
                                     width: screenWidth * 0.35,
-                                    height: 14,
+                                    height: labelFontSize,
                                     borderRadius: 4,
                                   ),
                                 ],
@@ -405,8 +506,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
-                SizedBox(height: screenHeight * 0.025),
-                // Action buttons shimmer
+                SizedBox(
+                  height: isVerySmallScreen
+                      ? screenHeight * 0.02
+                      : screenHeight * 0.025,
+                ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: padding),
                   child: ShimmerLoading(
@@ -414,20 +518,28 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         ShimmerBox(
                           width: double.infinity,
-                          height: 60,
+                          height: isVerySmallScreen ? 55 : 60,
                           borderRadius: 16,
                         ),
-                        SizedBox(height: screenHeight * 0.015),
+                        SizedBox(
+                          height: isVerySmallScreen
+                              ? screenHeight * 0.012
+                              : screenHeight * 0.015,
+                        ),
                         ShimmerBox(
                           width: double.infinity,
-                          height: 60,
+                          height: isVerySmallScreen ? 55 : 60,
                           borderRadius: 16,
                         ),
                       ],
                     ),
                   ),
                 ),
-                SizedBox(height: screenHeight * 0.04),
+                SizedBox(
+                  height: isVerySmallScreen
+                      ? screenHeight * 0.03
+                      : screenHeight * 0.04,
+                ),
               ],
             ),
           ),
@@ -439,11 +551,18 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildInfoItem(
     String label,
     String value,
-    double screenWidth, {
+    double screenWidth,
+    double labelFontSize,
+    double valueFontSize,
+    bool isVerySmallScreen, {
     bool isLast = false,
   }) {
     return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : screenWidth * 0.04),
+      padding: EdgeInsets.only(
+        bottom: isLast
+            ? 0
+            : (isVerySmallScreen ? screenWidth * 0.03 : screenWidth * 0.04),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -452,7 +571,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: screenWidth * 0.036,
+                fontSize: labelFontSize,
                 color: Colors.black45,
                 fontWeight: FontWeight.w500,
               ),
@@ -462,7 +581,7 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: screenWidth * 0.036,
+                fontSize: valueFontSize,
                 color: Colors.black87,
                 fontWeight: FontWeight.w600,
               ),
@@ -479,15 +598,24 @@ class _ProfilePageState extends State<ProfilePage> {
     IconData icon,
     double screenWidth,
     double screenHeight,
+    double iconSize,
+    double textSize,
+    double arrowSize,
+    bool isVerySmallScreen,
     VoidCallback onTap, {
     bool isLogout = false,
   }) {
+    final buttonHeight = isVerySmallScreen ? 55.0 : 60.0;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: buttonHeight,
         padding: EdgeInsets.symmetric(
-          horizontal: screenWidth * 0.05,
-          vertical: screenHeight * 0.02,
+          horizontal: isVerySmallScreen
+              ? screenWidth * 0.04
+              : screenWidth * 0.05,
+          vertical: screenHeight * 0.015,
         ),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -503,8 +631,8 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Row(
           children: [
             Container(
-              width: screenWidth * 0.11,
-              height: screenWidth * 0.11,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 color: isLogout
                     ? AppColors.error.withOpacity(0.1)
@@ -513,7 +641,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Icon(
                 icon,
-                size: screenWidth * 0.055,
+                size: iconSize * 0.5,
                 color: isLogout ? AppColors.error : AppColors.primary,
               ),
             ),
@@ -522,7 +650,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Text(
                 title,
                 style: TextStyle(
-                  fontSize: screenWidth * 0.04,
+                  fontSize: textSize,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
@@ -530,7 +658,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             Icon(
               Icons.arrow_forward_ios,
-              size: screenWidth * 0.04,
+              size: arrowSize,
               color: Colors.black26,
             ),
           ],
@@ -539,9 +667,15 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+  void _showLogoutDialog(
+    BuildContext context,
+    double screenWidth,
+    double screenHeight,
+    double headerFontSize,
+    double subtitleFontSize,
+    double buttonTextFontSize,
+  ) {
+    final iconSize = (screenWidth * 0.15).clamp(50.0, 64.0);
 
     showDialog(
       context: context,
@@ -560,8 +694,8 @@ class _ProfilePageState extends State<ProfilePage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: screenWidth * 0.15,
-                  height: screenWidth * 0.15,
+                  width: iconSize,
+                  height: iconSize,
                   decoration: BoxDecoration(
                     color: AppColors.error.withOpacity(0.1),
                     shape: BoxShape.circle,
@@ -569,14 +703,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Icon(
                     Icons.logout,
                     color: AppColors.error,
-                    size: screenWidth * 0.08,
+                    size: iconSize * 0.5,
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.02),
                 Text(
                   "Logout",
                   style: TextStyle(
-                    fontSize: screenWidth * 0.05,
+                    fontSize: headerFontSize,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
@@ -586,31 +720,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   "Apakah Anda yakin ingin keluar?",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: screenWidth * 0.036,
+                    fontSize: subtitleFontSize,
                     color: Colors.black54,
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.025),
 
-                if (isLoading)
-                  Column(
-                    children: [
-                      const CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.error,
-                        ),
-                      ),
-                      SizedBox(height: screenHeight * 0.015),
-                      Text(
-                        'Sedang logout...',
-                        style: TextStyle(
-                          fontSize: screenWidth * 0.032,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  )
-                else
+                if (!isLoading)
                   Row(
                     children: [
                       Expanded(
@@ -628,7 +744,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               "Batal",
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: screenWidth * 0.038,
+                                fontSize: buttonTextFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.black54,
                               ),
@@ -706,7 +822,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               "Logout",
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: screenWidth * 0.038,
+                                fontSize: buttonTextFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
                               ),
@@ -715,6 +831,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ),
                     ],
+                  ),
+                if (isLoading)
+                  const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
+                      ),
+                    ),
                   ),
               ],
             ),

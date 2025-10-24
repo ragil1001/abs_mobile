@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:safe_device/safe_device.dart';
 import 'package:installed_apps/installed_apps.dart';
-import 'package:installed_apps/app_info.dart';
 
 /// Enum untuk jenis deteksi fake GPS
 enum FakeGpsDetectionType {
@@ -12,7 +11,7 @@ enum FakeGpsDetectionType {
   suspiciousGpsData,
   unnaturalMovement,
   fakeGpsApp,
-  lowAccuracy, // Tetap gunakan nama lama untuk kompatibilitas
+  lowAccuracy,
   suspiciousSpeed,
 }
 
@@ -49,38 +48,46 @@ class FakeGpsDetectorService {
   final List<double> _speedHistory = [];
   final List<Position> _positionHistory = [];
 
+  // ✅ CACHE untuk mempercepat repeated checks
+  bool? _cachedDeveloperMode;
+  DateTime? _cachedDeveloperModeTime;
+  List<String>? _cachedFakeGpsApps;
+  DateTime? _cachedFakeGpsAppsTime;
+
   // Thresholds yang lebih reasonable
   static const int _minHistorySize = 5;
   static const int _maxHistorySize = 15;
-  static const double _suspiciousAccuracyThreshold = 1.5; // Turun dari 2.0
-  static const double _excellentAccuracyThreshold = 2.5; // Turun dari 3.0
-  static const double _maxReasonableSpeed = 60.0; // Naik dari 50 m/s
-  static const double _teleportDistance = 150.0; // Naik dari 100m
-  static const int _teleportTimeWindow = 8; // Turun dari 10s
-  static const int _frozenPositionTime = 45; // Naik dari 30s
+  static const double _suspiciousAccuracyThreshold = 1.5;
+  static const double _excellentAccuracyThreshold = 2.5;
+  static const double _maxReasonableSpeed = 60.0;
+  static const double _teleportDistance = 150.0;
+  static const int _teleportTimeWindow = 8;
+  static const int _frozenPositionTime = 45;
 
-  /// STRATEGY 1: Developer Mode Detection (TETAP WAJIB) ⭐⭐⭐
+  /// ✅ OPTIMIZED: Cache developer mode check (recheck every 30 seconds)
   Future<bool> isDeveloperModeActive() async {
     if (!Platform.isAndroid) return false;
 
+    // Check cache validity
+    if (_cachedDeveloperMode != null && _cachedDeveloperModeTime != null) {
+      final cacheAge = DateTime.now().difference(_cachedDeveloperModeTime!);
+      if (cacheAge.inSeconds < 30) {
+        return _cachedDeveloperMode!;
+      }
+    }
+
     try {
-      return await SafeDevice.isDevelopmentModeEnable;
+      final result = await SafeDevice.isDevelopmentModeEnable;
+      _cachedDeveloperMode = result;
+      _cachedDeveloperModeTime = DateTime.now();
+      return result;
     } catch (e) {
       debugPrint('Error checking developer mode: $e');
       return false;
     }
   }
 
-  /// STRATEGY 2: Mock Location Detection ⭐⭐⭐ (STRICT MODE)
-  ///
-  /// Deteksi mock location dengan policy KETAT:
-  /// - Mock location HANYA bisa diaktifkan via Developer Options
-  /// - Keberadaan mock location = indikasi kuat fake GPS attempt
-  /// - Block SELALU jika terdeteksi, tanpa mempertimbangkan use case legitimate
-  ///
-  /// Edge case yang di-handle:
-  /// 1. Dev mode ON + Mock ON = Standard fake GPS (blocked by dev mode)
-  /// 2. Dev mode OFF + Mock ON = Bypass attempt (score +70, instant block)
+  /// STRATEGY 2: Mock Location Detection (STRICT MODE)
   Future<bool> isMockLocationEnabled() async {
     if (!Platform.isAndroid) return false;
 
@@ -92,53 +99,45 @@ class FakeGpsDetectorService {
     }
   }
 
-  /// STRATEGY 3: GPS Data Validation (OPTIMIZED) ⭐⭐⭐
+  /// STRATEGY 3: GPS Data Validation (OPTIMIZED)
   int validateGpsData(Position position) {
     int suspicionPoints = 0;
 
     // 1. Altitude check - lebih lenient
-    // Hanya suspicious jika altitude = 0 DAN akurasi SANGAT tinggi DAN ada movement
     if (position.altitude == 0.0 &&
         position.accuracy < 3.0 &&
         position.speed > 1.0) {
-      debugPrint(
-        '⚠️ Suspicious: Altitude=0 dengan movement dan akurasi tinggi',
-      );
       suspicionPoints += 15;
     }
 
-    // 2. Speed validation - lebih reasonable
+    // 2. Speed validation
     if (position.speed < 0) {
-      debugPrint('⚠️ Speed negatif (invalid)');
       suspicionPoints += 30;
     }
 
     // 3. Heading validation
     if (position.heading < 0 || position.heading > 360) {
-      debugPrint('⚠️ Heading tidak valid: ${position.heading}');
       suspicionPoints += 20;
     }
 
-    // 4. SpeedAccuracy check - hanya jika ada movement signifikan
+    // 4. SpeedAccuracy check
     if (position.speedAccuracy == 0.0 && position.speed > 5.0) {
-      debugPrint('⚠️ SpeedAccuracy = 0 dengan speed tinggi (mencurigakan)');
       suspicionPoints += 15;
     }
 
-    // 5. Timestamp validation - cek jika timestamp tidak masuk akal
+    // 5. Timestamp validation
     final now = DateTime.now();
     final posTime = position.timestamp;
     final timeDiff = now.difference(posTime).abs();
 
     if (timeDiff.inMinutes > 5) {
-      debugPrint('⚠️ Timestamp GPS terlalu jauh dari waktu sekarang');
       suspicionPoints += 25;
     }
 
     return suspicionPoints;
   }
 
-  /// STRATEGY 4: Accuracy Pattern Analysis (OPTIMIZED) ⭐⭐
+  /// STRATEGY 4: Accuracy Pattern Analysis (OPTIMIZED)
   int analyzeAccuracyPattern(Position position) {
     _accuracyHistory.add(position.accuracy);
 
@@ -147,7 +146,7 @@ class FakeGpsDetectorService {
     }
 
     if (_accuracyHistory.length < _minHistorySize) {
-      return 0; // Belum cukup data
+      return 0;
     }
 
     int suspicionPoints = 0;
@@ -162,30 +161,25 @@ class FakeGpsDetectorService {
             .reduce((a, b) => a + b) /
         _accuracyHistory.length;
 
-    // Akurasi TERLALU sempurna secara konsisten (red flag besar)
+    // Akurasi TERLALU sempurna
     if (avgAccuracy < _excellentAccuracyThreshold && variance < 0.3) {
-      debugPrint(
-        '⚠️ Akurasi terlalu konsisten dan sempurna: avg=$avgAccuracy, var=$variance',
-      );
       suspicionPoints += 25;
     }
 
-    // Akurasi SANGAT tinggi di single point (bisa false positive, jadi point lebih kecil)
+    // Akurasi SANGAT tinggi di single point
     if (position.accuracy < _suspiciousAccuracyThreshold) {
-      debugPrint('⚠️ Akurasi sangat tinggi: ${position.accuracy}');
       suspicionPoints += 10;
     }
 
-    // Akurasi terlalu buruk (> 150m)
+    // Akurasi terlalu buruk
     if (position.accuracy > 150.0) {
-      debugPrint('⚠️ Akurasi terlalu buruk: ${position.accuracy}');
       suspicionPoints += 15;
     }
 
     return suspicionPoints;
   }
 
-  /// STRATEGY 5: Movement Pattern Analysis (OPTIMIZED) ⭐⭐⭐
+  /// STRATEGY 5: Movement Pattern Analysis (OPTIMIZED)
   int analyzeMovementPattern(Position currentPosition) {
     _positionHistory.add(currentPosition);
 
@@ -213,39 +207,31 @@ class FakeGpsDetectorService {
     _previousPosition = currentPosition;
     _previousTime = DateTime.now();
 
-    if (timeDiff < 3) return 0; // Terlalu cepat untuk dianalisis
+    if (timeDiff < 3) return 0;
 
     final calculatedSpeed = distance / timeDiff;
 
-    // 1. Kecepatan sangat tinggi (lebih lenient)
+    // 1. Kecepatan sangat tinggi
     if (calculatedSpeed > _maxReasonableSpeed) {
-      debugPrint(
-        '⚠️ Kecepatan tidak wajar: ${calculatedSpeed.toStringAsFixed(2)} m/s',
-      );
       suspicionPoints += 30;
     }
 
-    // 2. Teleportasi: jarak besar dalam waktu singkat
+    // 2. Teleportasi
     if (distance > _teleportDistance && timeDiff < _teleportTimeWindow) {
-      debugPrint(
-        '⚠️ Teleportasi: ${distance.toStringAsFixed(0)}m dalam ${timeDiff}s',
-      );
       suspicionPoints += 35;
     }
 
-    // 3. Frozen position - HANYA jika ada history movement sebelumnya
+    // 3. Frozen position
     if (distance == 0.0 && timeDiff > _frozenPositionTime) {
-      // Cek apakah sebelumnya ada movement
       if (_positionHistory.length >= 3) {
         final hadPreviousMovement = _checkPreviousMovement();
         if (hadPreviousMovement) {
-          debugPrint('⚠️ Posisi tiba-tiba frozen setelah movement');
           suspicionPoints += 20;
         }
       }
     }
 
-    // 4. Pattern analysis - perubahan mendadak dalam trajectory
+    // 4. Pattern analysis
     if (_positionHistory.length >= 5) {
       final trajectoryScore = _analyzeTrajectoryConsistency();
       suspicionPoints += trajectoryScore;
@@ -254,7 +240,6 @@ class FakeGpsDetectorService {
     return suspicionPoints;
   }
 
-  /// Helper: Check if there was movement in previous positions
   bool _checkPreviousMovement() {
     if (_positionHistory.length < 3) return false;
 
@@ -269,12 +254,11 @@ class FakeGpsDetectorService {
         _positionHistory[i + 1].latitude,
         _positionHistory[i + 1].longitude,
       );
-      if (dist > 5.0) return true; // Ada movement > 5m
+      if (dist > 5.0) return true;
     }
     return false;
   }
 
-  /// Helper: Analyze trajectory consistency
   int _analyzeTrajectoryConsistency() {
     final recentPositions = _positionHistory.sublist(
       _positionHistory.length - 5,
@@ -298,12 +282,9 @@ class FakeGpsDetectorService {
 
     if (speeds.length < 3) return 0;
 
-    // Cek perubahan speed yang sangat drastis
     for (int i = 0; i < speeds.length - 1; i++) {
       final speedChange = (speeds[i + 1] - speeds[i]).abs();
-      // Perubahan speed > 20 m/s dalam 1 update (accelerasi tidak natural)
       if (speedChange > 20.0) {
-        debugPrint('⚠️ Perubahan kecepatan sangat drastis');
         return 15;
       }
     }
@@ -311,7 +292,7 @@ class FakeGpsDetectorService {
     return 0;
   }
 
-  /// STRATEGY 6: Speed Pattern Analysis (OPTIMIZED) ⭐⭐
+  /// STRATEGY 6: Speed Pattern Analysis (OPTIMIZED)
   int analyzeSpeedPattern(Position position) {
     _speedHistory.add(position.speed);
 
@@ -325,15 +306,12 @@ class FakeGpsDetectorService {
 
     int suspicionPoints = 0;
 
-    // Speed selalu PERSIS sama (bukan hanya 0) - ini sangat mencurigakan
     final allIdentical = _speedHistory.every((s) => s == _speedHistory.first);
 
     if (allIdentical && position.speed > 0.5) {
-      debugPrint('⚠️ Speed selalu identik: ${position.speed}');
       suspicionPoints += 20;
     }
 
-    // Cek jika speed reported vs calculated speed sangat berbeda
     if (_previousPosition != null && _previousTime != null) {
       final distance = Geolocator.distanceBetween(
         _previousPosition!.latitude,
@@ -347,12 +325,7 @@ class FakeGpsDetectorService {
         final calculatedSpeed = distance / timeDiff;
         final speedDiff = (position.speed - calculatedSpeed).abs();
 
-        // Perbedaan > 10 m/s antara reported dan calculated
         if (speedDiff > 10.0) {
-          debugPrint(
-            '⚠️ Speed mismatch: reported=${position.speed}, '
-            'calculated=$calculatedSpeed',
-          );
           suspicionPoints += 15;
         }
       }
@@ -361,9 +334,17 @@ class FakeGpsDetectorService {
     return suspicionPoints;
   }
 
-  /// STRATEGY 7: Installed Fake GPS Apps ⭐⭐
+  /// ✅ OPTIMIZED: Cache fake GPS apps check (recheck every 60 seconds)
   Future<List<String>> getInstalledFakeGpsApps() async {
     if (!Platform.isAndroid) return [];
+
+    // Check cache validity
+    if (_cachedFakeGpsApps != null && _cachedFakeGpsAppsTime != null) {
+      final cacheAge = DateTime.now().difference(_cachedFakeGpsAppsTime!);
+      if (cacheAge.inSeconds < 60) {
+        return _cachedFakeGpsApps!;
+      }
+    }
 
     final fakeGpsPackages = [
       'com.lexa.fakegps',
@@ -388,7 +369,6 @@ class FakeGpsDetectorService {
       for (final app in installedApps) {
         final packageName = app.packageName.toLowerCase();
 
-        // Lebih spesifik dalam deteksi
         if ((packageName.contains('fake') && packageName.contains('gps')) ||
             (packageName.contains('fake') &&
                 packageName.contains('location')) ||
@@ -407,6 +387,10 @@ class FakeGpsDetectorService {
         }
       }
 
+      // Cache result
+      _cachedFakeGpsApps = fakeAppsFound;
+      _cachedFakeGpsAppsTime = DateTime.now();
+
       if (fakeAppsFound.isNotEmpty) {
         debugPrint('⚠️ Fake GPS apps: ${fakeAppsFound.join(", ")}');
       }
@@ -418,34 +402,37 @@ class FakeGpsDetectorService {
     }
   }
 
-  /// Main detection - Score-based system
+  /// ✅ OPTIMIZED: Main detection dengan parallel execution
   Future<FakeGpsDetectionResult> detectFakeGps(Position position) async {
     final detections = <FakeGpsDetectionType>[];
     final messages = <String>[];
     int totalScore = 0;
 
+    // ✅ CRITICAL: Run critical checks in parallel
+    final criticalChecks = await Future.wait([
+      isDeveloperModeActive(),
+      isMockLocationEnabled(),
+    ]);
+
+    final developerMode = criticalChecks[0];
+    final mockLocation = criticalChecks[1];
+
     // STRATEGY 1: Developer Mode (INSTANT BLOCK)
-    final developerMode = await isDeveloperModeActive();
     if (developerMode) {
       detections.add(FakeGpsDetectionType.developerMode);
       messages.add('Opsi Developer aktif');
       totalScore = 100; // Auto max score
     }
 
-    // STRATEGY 2: Mock Location (KETAT - Always block if detected)
-    // Mock location HANYA bisa aktif jika dev mode pernah ON
-    // Jadi deteksi mock = indikasi kuat fake GPS attempt
-    final mockLocation = await isMockLocationEnabled();
+    // STRATEGY 2: Mock Location (KETAT)
     if (mockLocation) {
       detections.add(FakeGpsDetectionType.mockLocation);
 
       if (developerMode) {
-        // Dev mode ON + Mock ON = standard fake GPS
         messages.add('Mock Location terdeteksi');
       } else {
-        // Dev mode OFF tapi Mock ON = bypass attempt (lebih berbahaya)
         messages.add('Mock Location terdeteksi (bypass attempt)');
-        totalScore += 70; // Score lebih tinggi untuk bypass attempt
+        totalScore += 70;
       }
     }
 
@@ -480,27 +467,36 @@ class FakeGpsDetectorService {
       totalScore += speedScore;
     }
 
-    // STRATEGY 7: Fake GPS Apps
-    final fakeApps = await getInstalledFakeGpsApps();
-    if (fakeApps.isNotEmpty) {
+    // STRATEGY 7: Fake GPS Apps (run in background, don't block)
+    getInstalledFakeGpsApps().then((fakeApps) {
+      if (fakeApps.isNotEmpty) {
+        // This will be caught on next detection cycle
+        debugPrint('⚠️ Fake GPS apps detected: ${fakeApps.join(", ")}');
+      }
+    });
+
+    // Use cached result if available
+    if (_cachedFakeGpsApps != null && _cachedFakeGpsApps!.isNotEmpty) {
       detections.add(FakeGpsDetectionType.fakeGpsApp);
-      messages.add('Aplikasi fake GPS: ${fakeApps.first}');
+      messages.add('Aplikasi fake GPS: ${_cachedFakeGpsApps!.first}');
       totalScore += 40;
     }
 
     // Cap score at 100
     totalScore = totalScore > 100 ? 100 : totalScore;
 
-    final isSuspicious = totalScore > 30; // Threshold untuk menampilkan warning
+    final isSuspicious = totalScore > 30;
     final message = messages.isEmpty
         ? 'Lokasi GPS valid (Score: $totalScore)'
         : '${messages.join('\n')} (Score: $totalScore)';
 
-    debugPrint('=== FAKE GPS DETECTION ===');
-    debugPrint('Total Suspicion Score: $totalScore/100');
-    debugPrint('Block Access: ${totalScore > 60 || developerMode}');
-    debugPrint('Detections: ${detections.join(", ")}');
-    debugPrint('========================');
+    if (kDebugMode && totalScore > 0) {
+      debugPrint('=== FAKE GPS DETECTION ===');
+      debugPrint('Total Suspicion Score: $totalScore/100');
+      debugPrint('Block Access: ${totalScore > 60 || developerMode}');
+      debugPrint('Detections: ${detections.join(", ")}');
+      debugPrint('========================');
+    }
 
     return FakeGpsDetectionResult(
       isSuspicious: isSuspicious,
@@ -511,15 +507,28 @@ class FakeGpsDetectorService {
     );
   }
 
+  /// Quick check untuk developer mode (with cache)
   Future<bool> quickDeveloperModeCheck() async {
     return await isDeveloperModeActive();
   }
 
+  /// Reset service state
   void reset() {
     _previousPosition = null;
     _previousTime = null;
     _accuracyHistory.clear();
     _speedHistory.clear();
     _positionHistory.clear();
+
+    // Don't clear cache on reset - it's still valid
+    // Only clear if explicitly needed
+  }
+
+  /// Clear all caches (call when needed, e.g., on logout)
+  void clearCache() {
+    _cachedDeveloperMode = null;
+    _cachedDeveloperModeTime = null;
+    _cachedFakeGpsApps = null;
+    _cachedFakeGpsAppsTime = null;
   }
 }

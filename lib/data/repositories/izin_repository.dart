@@ -3,40 +3,105 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/pengajuan_izin_model.dart';
-import '../services/api_service.dart';
+import '../services/dio_service.dart';
 import '../services/storage_service.dart';
 import '../../core/config/app_config.dart';
 
 class IzinRepository {
-  final ApiService _apiService = ApiService();
+  final DioService _dioService = DioService();
   final StorageService _storageService = StorageService();
+
+  Future<List<KategoriIzin>> getKategoriIzinList({
+    List<String>? enabledCategories,
+  }) async {
+    try {
+      final response = await _dioService.get(
+        '${AppConfig.mobileApiPrefix}/pengajuan-izin/kategori-list',
+      );
+
+      if (response['success'] == true) {
+        final data = response['data'] as List;
+
+        // ✅ FIX: Filter hanya kategori yang enabled = true
+        return data
+            .where((json) => json['enabled'] == true)
+            .map((json) => KategoriIzin.fromJson(json))
+            .toList();
+      } else {
+        throw ApiException(
+          response['message'] ?? 'Gagal mengambil kategori izin',
+        );
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<SubKategoriCutiKhusus>> getSubKategoriCutiKhususList({
+    List<String>? enabledSubCategories,
+  }) async {
+    try {
+      final response = await _dioService.get(
+        '${AppConfig.mobileApiPrefix}/pengajuan-izin/sub-kategori-list',
+      );
+
+      if (response['success'] == true) {
+        final data = response['data'] as List;
+
+        // ✅ FIX: Filter hanya sub kategori yang enabled = true
+        return data
+            .where((json) => json['enabled'] == true)
+            .map((json) => SubKategoriCutiKhusus.fromJson(json))
+            .toList();
+      } else {
+        throw ApiException(
+          response['message'] ?? 'Gagal mengambil sub kategori',
+        );
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Hitung tanggal selesai otomatis untuk cuti khusus
+  Future<Map<String, dynamic>> hitungTanggalSelesai({
+    required DateTime tanggalMulai,
+    required String subKategoriIzin,
+  }) async {
+    try {
+      final response = await _dioService
+          .post('${AppConfig.mobileApiPrefix}/pengajuan-izin/hitung-tanggal', {
+            'tanggal_mulai': tanggalMulai.toIso8601String().split('T')[0],
+            'sub_kategori_izin': subKategoriIzin,
+          });
+
+      if (response['success'] == true) {
+        return response['data'];
+      } else {
+        throw ApiException(response['message'] ?? 'Gagal menghitung tanggal');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   /// Get list pengajuan izin karyawan
   Future<List<PengajuanIzin>> getMyPengajuan() async {
     try {
-      final response = await _apiService.get(
+      final response = await _dioService.get(
         '${AppConfig.mobileApiPrefix}/pengajuan-izin',
       );
-
-      print('=== GET MY PENGAJUAN DEBUG ===');
-      print('Response: $response');
-      print('Success: ${response['success']}');
-      print('Data type: ${response['data']?.runtimeType}');
 
       if (response['success'] == true) {
         final data = response['data'];
 
         if (data == null) {
-          print('Data is null, returning empty list');
           return [];
         }
 
         if (data is! List) {
-          print('ERROR: Data is not a List, it is: ${data.runtimeType}');
           throw ApiException('Format data response tidak valid');
         }
-
-        print('Processing ${data.length} items');
 
         final List<PengajuanIzin> result = [];
         for (var i = 0; i < data.length; i++) {
@@ -44,16 +109,12 @@ class IzinRepository {
             final item = data[i];
             if (item is Map<String, dynamic>) {
               result.add(PengajuanIzin.fromJson(item));
-            } else {
-              print('Item $i is not a Map: ${item.runtimeType}');
             }
           } catch (e) {
-            print('Error parsing item $i: $e');
-            // Continue with other items
+            // Skip invalid items
           }
         }
 
-        print('Successfully parsed ${result.length} pengajuan');
         return result;
       } else {
         throw ApiException(
@@ -61,8 +122,6 @@ class IzinRepository {
         );
       }
     } catch (e) {
-      print('=== GET MY PENGAJUAN ERROR ===');
-      print('Error: $e');
       rethrow;
     }
   }
@@ -70,12 +129,9 @@ class IzinRepository {
   /// Get detail pengajuan izin
   Future<PengajuanIzin> getDetailPengajuan(int id) async {
     try {
-      final response = await _apiService.get(
+      final response = await _dioService.get(
         '${AppConfig.mobileApiPrefix}/pengajuan-izin/$id',
       );
-
-      print('=== GET DETAIL PENGAJUAN DEBUG ===');
-      print('Response: $response');
 
       if (response['success'] == true) {
         if (response['data'] == null) {
@@ -93,16 +149,17 @@ class IzinRepository {
         );
       }
     } catch (e) {
-      print('Get detail pengajuan error: $e');
       rethrow;
     }
   }
 
-  /// Ajukan izin dengan file upload
+  /// Ajukan izin dengan kategori lengkap
   Future<PengajuanIzin> ajukanIzin({
-    required String jenisIzin,
+    required String kategoriIzin,
+    String? subKategoriIzin,
+    String? deskripsiIzin,
     required DateTime tanggalMulai,
-    required DateTime tanggalSelesai,
+    DateTime? tanggalSelesai,
     String? keterangan,
     File? fileDokumen,
   }) async {
@@ -122,17 +179,29 @@ class IzinRepository {
       request.headers.addAll({
         'Accept': 'application/json',
         'Authorization': 'Bearer $token',
-        'X-Requested-With': 'FlutterApp', // Tambahkan ini
+        'X-Requested-With': 'FlutterApp',
       });
 
       // Add fields
-      request.fields['jenis_izin'] = jenisIzin;
+      request.fields['kategori_izin'] = kategoriIzin;
+
+      if (subKategoriIzin != null && subKategoriIzin.isNotEmpty) {
+        request.fields['sub_kategori_izin'] = subKategoriIzin;
+      }
+
+      if (deskripsiIzin != null && deskripsiIzin.isNotEmpty) {
+        request.fields['deskripsi_izin'] = deskripsiIzin;
+      }
+
       request.fields['tanggal_mulai'] = tanggalMulai.toIso8601String().split(
         'T',
       )[0];
-      request.fields['tanggal_selesai'] = tanggalSelesai
-          .toIso8601String()
-          .split('T')[0];
+
+      if (tanggalSelesai != null) {
+        request.fields['tanggal_selesai'] = tanggalSelesai
+            .toIso8601String()
+            .split('T')[0];
+      }
 
       if (keterangan != null && keterangan.isNotEmpty) {
         request.fields['keterangan'] = keterangan;
@@ -204,7 +273,7 @@ class IzinRepository {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
               'Authorization': 'Bearer $token',
-              'X-Requested-With': 'FlutterApp', // Tambahkan ini
+              'X-Requested-With': 'FlutterApp',
             },
           )
           .timeout(const Duration(seconds: 30));
@@ -232,7 +301,7 @@ class IzinRepository {
   /// Hapus pengajuan izin
   Future<void> hapusPengajuan(int id) async {
     try {
-      final response = await _apiService.delete(
+      final response = await _dioService.delete(
         '${AppConfig.mobileApiPrefix}/pengajuan-izin/$id',
       );
 

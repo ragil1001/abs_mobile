@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../data/models/tukar_shift_model.dart';
 import '../data/repositories/tukar_shift_repository.dart';
-import '../data/services/api_service.dart';
+import '../data/services/dio_service.dart';
 
 class TukarShiftProvider with ChangeNotifier {
   final TukarShiftRepository _repository = TukarShiftRepository();
@@ -43,6 +43,10 @@ class TukarShiftProvider with ChangeNotifier {
     try {
       _isLoading = true;
       _errorMessage = null;
+
+      // ✅ CLEAR OLD DATA FIRST
+      _requests.clear();
+
       notifyListeners();
 
       _requests = await _repository.getTukarShiftRequests(
@@ -70,6 +74,10 @@ class TukarShiftProvider with ChangeNotifier {
     try {
       _isLoadingShifts = true;
       _errorMessageShifts = null;
+
+      // ✅ CLEAR OLD DATA FIRST
+      _availableShifts.clear();
+
       notifyListeners();
 
       _availableShifts = await _repository.getAvailableShifts(
@@ -98,6 +106,10 @@ class TukarShiftProvider with ChangeNotifier {
     try {
       _isLoadingKaryawan = true;
       _errorMessageKaryawan = null;
+
+      // ✅ CLEAR OLD DATA FIRST
+      _karyawanList.clear();
+
       notifyListeners();
 
       _karyawanList = await _repository.getKaryawanWithShift(
@@ -116,6 +128,21 @@ class TukarShiftProvider with ChangeNotifier {
       _errorMessageKaryawan = 'Terjadi kesalahan: ${e.toString()}';
       notifyListeners();
     }
+  }
+
+  /// ✅ TAMBAHKAN METHOD CLEAR
+  void clear() {
+    _requests.clear();
+    _availableShifts.clear();
+    _karyawanList.clear();
+    _errorMessage = null;
+    _errorMessageShifts = null;
+    _errorMessageKaryawan = null;
+    _isLoading = false;
+    _isLoadingShifts = false;
+    _isLoadingKaryawan = false;
+    _isSubmitting = false;
+    notifyListeners();
   }
 
   /// Submit tukar shift
@@ -224,15 +251,14 @@ class TukarShiftProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Clear available shifts
   void clearAvailableShifts() {
-    _availableShifts = [];
+    _availableShifts.clear();
     notifyListeners();
   }
 
   /// Clear karyawan list
   void clearKaryawanList() {
-    _karyawanList = [];
+    _karyawanList.clear();
     notifyListeners();
   }
 }

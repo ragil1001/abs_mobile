@@ -7,9 +7,10 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/presensi_provider.dart'; // TAMBAH INI
-import '../data/services/api_service.dart';
+import '../data/services/dio_service.dart';
 import '../core/config/app_config.dart';
 import 'dart:convert';
+import '../data/services/image_compression_service.dart';
 
 class SelfiePage extends StatefulWidget {
   final String mode; // "masuk" atau "pulang"
@@ -253,6 +254,8 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       _isSubmitting = true;
     });
 
+    File? compressedFile;
+
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final token = authProvider.token;
@@ -261,34 +264,48 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
         throw ApiException('Token tidak ditemukan');
       }
 
-      // Gunakan lokasi terkini atau lokasi yang diberikan
+      // ✅ COMPRESS FOTO SEBELUM UPLOAD
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Memproses foto...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      compressedFile = await ImageCompressionService.compressPresensiPhoto(
+        imageFile,
+      );
+
+      // Log ukuran file
+      final originalSize = await imageFile.length();
+      final compressedSize = await compressedFile.length();
+      debugPrint(
+        '📸 Original: ${(originalSize / 1024).toStringAsFixed(0)}KB → '
+        'Compressed: ${(compressedSize / 1024).toStringAsFixed(0)}KB',
+      );
+
       final lat = _currentPosition?.latitude ?? widget.latitude;
       final lon = _currentPosition?.longitude ?? widget.longitude;
 
-      // Buat multipart request
       final uri = Uri.parse(
         '${AppConfig.baseUrl}${AppConfig.mobileApiPrefix}/presensi/submit',
       );
 
       var request = http.MultipartRequest('POST', uri);
-
-      // Headers
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
       request.headers['X-Requested-With'] = 'FlutterApp';
 
-      // Fields
       request.fields['jadwal_id'] = widget.jadwalId.toString();
       request.fields['tipe'] = widget.mode;
       request.fields['latitude'] = lat.toString();
       request.fields['longitude'] = lon.toString();
 
-      // File
+      // Upload compressed file
       request.files.add(
-        await http.MultipartFile.fromPath('foto', imageFile.path),
+        await http.MultipartFile.fromPath('foto', compressedFile.path),
       );
 
-      // Kirim request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
       final responseData = json.decode(response.body);
@@ -297,7 +314,6 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (responseData['success'] == true) {
-          // Sukses
           HapticFeedback.mediumImpact();
 
           await showDialog(
@@ -344,7 +360,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                 actions: [
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(context); // Close dialog
+                      Navigator.pop(context);
                       _handleSuccessAndReturn();
                     },
                     style: ElevatedButton.styleFrom(
@@ -367,20 +383,6 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
           responseData['message'] ?? 'Gagal menyimpan presensi',
         );
       }
-    } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -389,11 +391,22 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Terjadi kesalahan: ${e.toString()}'),
+            content: Text(
+              e is ApiException
+                  ? e.message
+                  : 'Terjadi kesalahan: ${e.toString()}',
+            ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
         );
+      }
+    } finally {
+      // ✅ CLEANUP: Delete compressed file
+      if (compressedFile != null) {
+        try {
+          await compressedFile.delete();
+        } catch (_) {}
       }
     }
   }

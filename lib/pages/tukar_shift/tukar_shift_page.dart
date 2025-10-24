@@ -29,7 +29,6 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
 
   void _loadData() {
     final provider = Provider.of<TukarShiftProvider>(context, listen: false);
-    // Hanya kirim filter jenis dan tanggal ke API, status difilter di client
     provider.loadTukarShiftRequests(
       jenis: _filterJenis,
       startDate: _customRange?.start.toString().split(' ')[0],
@@ -43,6 +42,11 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
   }
 
   void _showFilterDialog() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final titleFontSize = (screenWidth * 0.050).clamp(16.0, 20.0);
+    final bodyFontSize = (screenWidth * 0.036).clamp(12.0, 14.0);
+    final buttonFontSize = (screenWidth * 0.038).clamp(13.0, 15.0);
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -52,7 +56,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(screenWidth * 0.05),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,39 +71,55 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
+                  SizedBox(height: screenWidth * 0.05),
+                  Text(
                     'Filter',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: titleFontSize,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
+                  SizedBox(height: screenWidth * 0.04),
+                  Text(
                     'Jenis Permintaan',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: bodyFontSize,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: screenWidth * 0.025),
                   Wrap(
                     spacing: 8,
                     children: [
-                      _buildFilterChip('Semua', 'all', setModalState),
+                      _buildFilterChip(
+                        'Semua',
+                        'all',
+                        setModalState,
+                        screenWidth,
+                      ),
                       _buildFilterChip(
                         'Permintaan Saya',
                         'saya',
                         setModalState,
+                        screenWidth,
                       ),
                       _buildFilterChip(
                         'Permintaan Orang Lain',
                         'orang_lain',
                         setModalState,
+                        screenWidth,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
+                  SizedBox(height: screenWidth * 0.04),
+                  Text(
                     'Rentang Tanggal',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: bodyFontSize,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: screenWidth * 0.025),
                   Row(
                     children: [
                       Expanded(
@@ -126,22 +146,30 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                               setState(() => _customRange = range);
                             }
                           },
-                          icon: const Icon(Icons.date_range, size: 18),
+                          icon: Icon(
+                            Icons.date_range,
+                            size: (screenWidth * 0.045).clamp(16.0, 18.0),
+                          ),
                           label: Text(
                             _customRange == null
                                 ? 'Pilih Tanggal'
                                 : '${DateFormat('dd/MM').format(_customRange!.start)} - ${DateFormat('dd/MM').format(_customRange!.end)}',
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(fontSize: bodyFontSize),
                           ),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(
+                              vertical: screenWidth * 0.03,
+                            ),
                           ),
                         ),
                       ),
                       if (_customRange != null) ...[
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.close, size: 20),
+                          icon: Icon(
+                            Icons.close,
+                            size: (screenWidth * 0.05).clamp(18.0, 20.0),
+                          ),
                           onPressed: () {
                             setModalState(() => _customRange = null);
                             setState(() => _customRange = null);
@@ -151,7 +179,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: screenWidth * 0.04),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -162,15 +190,17 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: EdgeInsets.symmetric(
+                          vertical: screenWidth * 0.035,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Terapkan',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: buttonFontSize,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -189,10 +219,13 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     String label,
     String value,
     StateSetter setModalState,
+    double screenWidth,
   ) {
     final selected = _filterJenis == value;
+    final chipFontSize = (screenWidth * 0.034).clamp(11.0, 13.0);
+
     return ChoiceChip(
-      label: Text(label, style: TextStyle(fontSize: 13)),
+      label: Text(label, style: TextStyle(fontSize: chipFontSize)),
       selected: selected,
       onSelected: (bool selected) {
         setModalState(() => _filterJenis = value);
@@ -281,7 +314,6 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
               listen: false,
             );
             final success = await provider.cancelTukarShift(request.id);
-
             if (mounted) {
               if (success) {
                 CustomSnackbar.showSuccess(
@@ -313,7 +345,6 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
               id: request.id,
               action: 'setujui',
             );
-
             if (mounted) {
               if (success) {
                 CustomSnackbar.showSuccess(
@@ -338,6 +369,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
 
   void _showRejectDialog(int requestId) {
     final TextEditingController alasanController = TextEditingController();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final titleFontSize = (screenWidth * 0.045).clamp(15.0, 18.0);
+    final bodyFontSize = (screenWidth * 0.036).clamp(12.0, 14.0);
 
     showDialog(
       context: context,
@@ -346,17 +380,25 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text("Tolak Permintaan"),
+          title: Text(
+            "Tolak Permintaan",
+            style: TextStyle(fontSize: titleFontSize),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Berikan alasan penolakan:"),
-              const SizedBox(height: 12),
+              Text(
+                "Berikan alasan penolakan:",
+                style: TextStyle(fontSize: bodyFontSize),
+              ),
+              SizedBox(height: screenWidth * 0.03),
               TextField(
                 controller: alasanController,
                 maxLines: 3,
+                style: TextStyle(fontSize: bodyFontSize),
                 decoration: InputDecoration(
                   hintText: 'Alasan penolakan...',
+                  hintStyle: TextStyle(fontSize: bodyFontSize),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -369,7 +411,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Batal"),
+              child: Text("Batal", style: TextStyle(fontSize: bodyFontSize)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -380,9 +422,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   );
                   return;
                 }
-
                 Navigator.pop(context);
-
                 final provider = Provider.of<TukarShiftProvider>(
                   context,
                   listen: false,
@@ -392,7 +432,6 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   action: 'tolak',
                   alasanPenolakan: alasanController.text.trim(),
                 );
-
                 if (mounted) {
                   if (success) {
                     CustomSnackbar.showSuccess(
@@ -414,7 +453,10 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text("Ya, Tolak"),
+              child: Text(
+                "Ya, Tolak",
+                style: TextStyle(fontSize: bodyFontSize),
+              ),
             ),
           ],
         );
@@ -429,6 +471,10 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     bool isDestructive = false,
     required Future<void> Function() onConfirm,
   }) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final titleFontSize = (screenWidth * 0.045).clamp(15.0, 18.0);
+    final bodyFontSize = (screenWidth * 0.036).clamp(12.0, 14.0);
+
     showDialog(
       context: context,
       builder: (context) {
@@ -436,12 +482,12 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Text(title),
-          content: Text(message),
+          title: Text(title, style: TextStyle(fontSize: titleFontSize)),
+          content: Text(message, style: TextStyle(fontSize: bodyFontSize)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Batal"),
+              child: Text("Batal", style: TextStyle(fontSize: bodyFontSize)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -457,7 +503,10 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: Text(confirmText),
+              child: Text(
+                confirmText,
+                style: TextStyle(fontSize: bodyFontSize),
+              ),
             ),
           ],
         );
@@ -469,7 +518,10 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final padding = screenWidth * 0.06;
+    final padding = screenWidth * 0.05;
+    final titleFontSize = (screenWidth * 0.048).clamp(16.0, 20.0);
+    final bodyFontSize = (screenWidth * 0.036).clamp(12.0, 14.0);
+    final smallFontSize = (screenWidth * 0.032).clamp(10.0, 12.0);
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 254, 253, 253),
@@ -479,7 +531,13 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
             if (provider.isLoading) {
               return Column(
                 children: [
-                  _buildHeader(context, screenWidth, screenHeight, padding),
+                  _buildHeader(
+                    context,
+                    screenWidth,
+                    screenHeight,
+                    padding,
+                    titleFontSize,
+                  ),
                   const Expanded(
                     child: Center(
                       child: CircularProgressIndicator(
@@ -496,26 +554,35 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
             if (provider.errorMessage != null) {
               return Column(
                 children: [
-                  _buildHeader(context, screenWidth, screenHeight, padding),
+                  _buildHeader(
+                    context,
+                    screenWidth,
+                    screenHeight,
+                    padding,
+                    titleFontSize,
+                  ),
                   Expanded(
                     child: Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: EdgeInsets.all(padding),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.error_outline,
-                              size: 64,
+                              size: (screenWidth * 0.16).clamp(48.0, 64.0),
                               color: AppColors.error.withOpacity(0.5),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: screenHeight * 0.02),
                             Text(
                               provider.errorMessage!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.black54),
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontSize: bodyFontSize,
+                              ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: screenHeight * 0.02),
                             ElevatedButton(
                               onPressed: _loadData,
                               style: ElevatedButton.styleFrom(
@@ -524,8 +591,15 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenWidth * 0.08,
+                                  vertical: screenHeight * 0.015,
+                                ),
                               ),
-                              child: const Text('Coba Lagi'),
+                              child: Text(
+                                'Coba Lagi',
+                                style: TextStyle(fontSize: bodyFontSize),
+                              ),
                             ),
                           ],
                         ),
@@ -541,37 +615,57 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
 
             return Column(
               children: [
-                _buildHeader(context, screenWidth, screenHeight, padding),
+                _buildHeader(
+                  context,
+                  screenWidth,
+                  screenHeight,
+                  padding,
+                  titleFontSize,
+                ),
                 Container(
                   color: Colors.white,
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.03,
+                      vertical: screenHeight * 0.01,
                     ),
                     child: Row(
                       children: [
-                        _buildTab("Semua", "all", requests.length),
+                        _buildTab(
+                          "Semua",
+                          "all",
+                          requests.length,
+                          screenWidth,
+                          smallFontSize,
+                        ),
                         _buildTab(
                           "Pending",
                           "pending",
                           _getCountByStatus(requests, "pending"),
+                          screenWidth,
+                          smallFontSize,
                         ),
                         _buildTab(
                           "Disetujui",
                           "disetujui",
                           _getCountByStatus(requests, "disetujui"),
+                          screenWidth,
+                          smallFontSize,
                         ),
                         _buildTab(
                           "Ditolak",
                           "ditolak",
                           _getCountByStatus(requests, "ditolak"),
+                          screenWidth,
+                          smallFontSize,
                         ),
                         _buildTab(
                           "Dibatalkan",
                           "dibatalkan",
                           _getCountByStatus(requests, "dibatalkan"),
+                          screenWidth,
+                          smallFontSize,
                         ),
                       ],
                     ),
@@ -581,19 +675,19 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                 if (_filterJenis != "all" || _customRange != null)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: padding,
+                      vertical: screenHeight * 0.015,
                     ),
                     color: AppColors.primary.withOpacity(0.1),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.filter_alt,
-                          size: 20,
+                          size: (screenWidth * 0.05).clamp(18.0, 20.0),
                           color: AppColors.primary,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: screenWidth * 0.02),
                         Expanded(
                           child: Text(
                             [
@@ -603,17 +697,17 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                               if (_customRange != null)
                                 '${DateFormat('dd MMM').format(_customRange!.start)} - ${DateFormat('dd MMM').format(_customRange!.end)}',
                             ].join(' • '),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              fontSize: bodyFontSize,
                             ),
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.close,
-                            size: 20,
+                            size: (screenWidth * 0.05).clamp(18.0, 20.0),
                             color: AppColors.primary,
                           ),
                           onPressed: () {
@@ -635,15 +729,15 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                             children: [
                               Icon(
                                 Icons.swap_horiz,
-                                size: 64,
+                                size: (screenWidth * 0.16).clamp(48.0, 64.0),
                                 color: Colors.grey.shade300,
                               ),
-                              const SizedBox(height: 16),
+                              SizedBox(height: screenHeight * 0.02),
                               Text(
                                 'Belum ada permintaan tukar shift',
                                 style: TextStyle(
                                   color: Colors.grey.shade600,
-                                  fontSize: 16,
+                                  fontSize: bodyFontSize,
                                 ),
                               ),
                             ],
@@ -658,10 +752,15 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                             endDate: _customRange?.end.toString().split(' ')[0],
                           ),
                           child: ListView.builder(
-                            padding: const EdgeInsets.all(16),
+                            padding: EdgeInsets.all(padding),
                             itemCount: filteredRequests.length,
                             itemBuilder: (context, index) {
-                              return _buildRequestCard(filteredRequests[index]);
+                              return _buildRequestCard(
+                                filteredRequests[index],
+                                screenWidth,
+                                bodyFontSize,
+                                smallFontSize,
+                              );
                             },
                           ),
                         ),
@@ -682,9 +781,12 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 4,
-        label: const Text(
+        label: Text(
           'Ajukan Tukar Shift',
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: (screenWidth * 0.036).clamp(12.0, 14.0),
+          ),
         ),
         icon: const Icon(Icons.add),
       ),
@@ -696,7 +798,10 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     double screenWidth,
     double screenHeight,
     double padding,
+    double titleFontSize,
   ) {
+    final iconSize = (screenWidth * 0.1).clamp(36.0, 42.0);
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: padding,
@@ -708,15 +813,15 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: screenWidth * 0.1,
-              height: screenWidth * 0.1,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.arrow_back_ios_new,
-                size: screenWidth * 0.045,
+                size: (screenWidth * 0.045).clamp(16.0, 18.0),
                 color: Colors.black87,
               ),
             ),
@@ -725,7 +830,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           Text(
             "Tukar Shift",
             style: TextStyle(
-              fontSize: screenWidth * 0.048,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
               letterSpacing: 0.5,
@@ -735,15 +840,15 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           GestureDetector(
             onTap: _showFilterDialog,
             child: Container(
-              width: screenWidth * 0.1,
-              height: screenWidth * 0.1,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.filter_alt,
-                size: screenWidth * 0.05,
+                size: (screenWidth * 0.05).clamp(18.0, 20.0),
                 color: AppColors.primary,
               ),
             ),
@@ -753,15 +858,20 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     );
   }
 
-  Widget _buildTab(String label, String value, int count) {
+  Widget _buildTab(
+    String label,
+    String value,
+    int count,
+    double screenWidth,
+    double fontSize,
+  ) {
     final selected = _filterTab == value;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.01),
       child: ChoiceChip(
         label: Text('$label ($count)'),
         selected: selected,
         onSelected: (_) {
-          // Hanya update state, tidak reload data
           if (_filterTab != value) {
             setState(() => _filterTab = value);
           }
@@ -771,6 +881,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
         labelStyle: TextStyle(
           color: selected ? Colors.white : Colors.black87,
           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          fontSize: fontSize,
         ),
       ),
     );
@@ -781,7 +892,12 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     return requests.where((req) => req.status == _filterTab).toList();
   }
 
-  Widget _buildRequestCard(request) {
+  Widget _buildRequestCard(
+    request,
+    double screenWidth,
+    double bodyFontSize,
+    double smallFontSize,
+  ) {
     final status = request.status;
     final jenis = request.jenis;
     final shiftSaya = request.shiftSaya;
@@ -807,7 +923,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: screenWidth * 0.03),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -823,7 +939,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(screenWidth * 0.03),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
@@ -834,9 +950,9 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.02,
+                    vertical: screenWidth * 0.01,
                   ),
                   decoration: BoxDecoration(
                     color: jenis == 'saya'
@@ -853,11 +969,11 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                           ? Colors.blue.shade700
                           : Colors.purple.shade700,
                       fontWeight: FontWeight.bold,
-                      fontSize: 11,
+                      fontSize: smallFontSize,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: screenWidth * 0.02),
                 Expanded(
                   child: Text(
                     status == 'pending'
@@ -870,7 +986,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.w600,
-                      fontSize: 13,
+                      fontSize: bodyFontSize,
                     ),
                   ),
                 ),
@@ -879,7 +995,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     _showActionMenu(request, details.globalPosition);
                   },
                   child: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: EdgeInsets.all(screenWidth * 0.015),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(8),
@@ -887,7 +1003,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     child: Icon(
                       Icons.more_vert,
                       color: Colors.grey.shade700,
-                      size: 20,
+                      size: (screenWidth * 0.05).clamp(18.0, 20.0),
                     ),
                   ),
                 ),
@@ -895,7 +1011,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(screenWidth * 0.03),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -909,20 +1025,24 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                         shiftSaya.waktu ??
                             '${shiftSaya.waktuMulai} - ${shiftSaya.waktuSelesai}',
                         Colors.blue,
+                        screenWidth,
+                        smallFontSize,
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.02,
+                      ),
                       child: Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: EdgeInsets.all(screenWidth * 0.02),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.swap_horiz,
                           color: AppColors.primary,
-                          size: 24,
+                          size: (screenWidth * 0.06).clamp(20.0, 24.0),
                         ),
                       ),
                     ),
@@ -934,11 +1054,13 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                         shiftDiminta.waktu ??
                             '${shiftDiminta.waktuMulai} - ${shiftDiminta.waktuSelesai}',
                         Colors.green,
+                        screenWidth,
+                        smallFontSize,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: screenWidth * 0.03),
                 const Divider(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -946,14 +1068,14 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     Text(
                       'Diajukan: ${DateFormat('dd MMM yyyy', 'id_ID').format(request.tanggalRequest)}',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: smallFontSize,
                         color: Colors.grey.shade600,
                       ),
                     ),
                     if (request.catatan != null && request.catatan!.isNotEmpty)
-                      const Icon(
+                      Icon(
                         Icons.note,
-                        size: 16,
+                        size: (screenWidth * 0.04).clamp(14.0, 16.0),
                         color: AppColors.primary,
                       ),
                   ],
@@ -972,9 +1094,11 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     DateTime tanggal,
     String waktu,
     Color color,
+    double screenWidth,
+    double fontSize,
   ) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: EdgeInsets.all(screenWidth * 0.025),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
@@ -986,35 +1110,44 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: (screenWidth * 0.026).clamp(9.0, 10.0),
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: screenWidth * 0.01),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.02,
+              vertical: screenWidth * 0.005,
+            ),
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               'Shift $shiftCode',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 11,
+                fontSize: (screenWidth * 0.029).clamp(10.0, 11.0),
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: screenWidth * 0.015),
           Text(
             DateFormat('dd MMM yyyy', 'id_ID').format(tanggal),
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: (screenWidth * 0.029).clamp(10.0, 11.0),
+              fontWeight: FontWeight.w600,
+            ),
           ),
           Text(
             waktu,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            style: TextStyle(
+              fontSize: (screenWidth * 0.026).clamp(9.0, 10.0),
+              color: Colors.grey.shade600,
+            ),
           ),
         ],
       ),

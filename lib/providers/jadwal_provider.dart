@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../data/models/jadwal_model.dart';
 import '../data/repositories/jadwal_repository.dart';
-import '../data/services/api_service.dart';
+import '../data/services/dio_service.dart';
 
 class JadwalProvider with ChangeNotifier {
   final JadwalRepository _jadwalRepository = JadwalRepository();
@@ -18,6 +18,10 @@ class JadwalProvider with ChangeNotifier {
     try {
       _isLoading = true;
       _errorMessage = null;
+
+      // âœ… CLEAR OLD DATA FIRST
+      _jadwalBulan = null;
+
       notifyListeners();
 
       _jadwalBulan = await _jadwalRepository.getJadwalBulan(bulan);
@@ -36,6 +40,14 @@ class JadwalProvider with ChangeNotifier {
 
   Future<void> refreshJadwalBulan(String bulan) async {
     await loadJadwalBulan(bulan);
+  }
+
+  /// âœ… TAMBAHKAN METHOD CLEAR
+  void clear() {
+    _jadwalBulan = null;
+    _errorMessage = null;
+    _isLoading = false;
+    notifyListeners();
   }
 
   void clearError() {

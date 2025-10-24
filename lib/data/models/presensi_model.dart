@@ -3,15 +3,28 @@ class PresensiData {
   final PresensiHariIni? presensiHariIni;
   final JadwalHariIni? jadwalHariIni;
   final ProjectInfo? projectInfo;
+  final List<String> enabledIzinCategories; // ✅ NEW
+  final List<String> enabledSubKategoriIzin; // ✅ NEW
 
   PresensiData({
     required this.statistik,
     this.presensiHariIni,
     this.jadwalHariIni,
     this.projectInfo,
+    this.enabledIzinCategories = const [], // ✅ NEW
+    this.enabledSubKategoriIzin = const [], // ✅ NEW
   });
 
   factory PresensiData.fromJson(Map<String, dynamic> json) {
+    // ✅ Parse enabled categories
+    List<String> parseStringList(dynamic value) {
+      if (value == null) return [];
+      if (value is List) {
+        return value.map((e) => e.toString()).toList();
+      }
+      return [];
+    }
+
     return PresensiData(
       statistik: StatistikPresensi.fromJson(json['statistik'] ?? {}),
       presensiHariIni: json['presensi_hari_ini'] != null
@@ -20,11 +33,13 @@ class PresensiData {
       jadwalHariIni: json['jadwal_hari_ini'] != null
           ? JadwalHariIni.fromJson(json['jadwal_hari_ini'])
           : null,
-      projectInfo:
-          json['project_info'] !=
-              null // TAMBAH INI
+      projectInfo: json['project_info'] != null
           ? ProjectInfo.fromJson(json['project_info'])
           : null,
+      enabledIzinCategories: parseStringList(json['enabled_izin_categories']),
+      enabledSubKategoriIzin: parseStringList(
+        json['enabled_sub_kategori_izin'],
+      ),
     );
   }
 }
@@ -54,14 +69,14 @@ class PresensiHariIni {
   final String? waktuPulang;
   final String? statusMasuk;
   final String? statusPulang;
-  final bool isAlpa; // TAMBAH INI
+  final bool isAlpa;
 
   PresensiHariIni({
     this.waktuMasuk,
     this.waktuPulang,
     this.statusMasuk,
     this.statusPulang,
-    this.isAlpa = false, // TAMBAH INI
+    this.isAlpa = false,
   });
 
   factory PresensiHariIni.fromJson(Map<String, dynamic> json) {
@@ -70,7 +85,7 @@ class PresensiHariIni {
       waktuPulang: json['waktu_pulang'],
       statusMasuk: json['status_masuk'],
       statusPulang: json['status_pulang'],
-      isAlpa: json['is_alpa'] ?? false, // TAMBAH INI
+      isAlpa: json['is_alpa'] ?? false,
     );
   }
 }

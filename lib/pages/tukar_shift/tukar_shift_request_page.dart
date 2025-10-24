@@ -111,32 +111,41 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final padding = screenWidth * 0.06;
+    final padding = screenWidth * 0.05;
+    final titleFontSize = (screenWidth * 0.048).clamp(16.0, 20.0);
+    final bodyFontSize = (screenWidth * 0.036).clamp(12.0, 14.0);
+    final smallFontSize = (screenWidth * 0.032).clamp(10.0, 12.0);
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 254, 253, 253),
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context, screenWidth, screenHeight, padding),
+            _buildHeader(
+              context,
+              screenWidth,
+              screenHeight,
+              padding,
+              titleFontSize,
+            ),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(padding),
               color: Colors.blue.shade50,
               child: Row(
                 children: [
                   Icon(
                     Icons.info_outline,
                     color: Colors.blue.shade700,
-                    size: 20,
+                    size: (screenWidth * 0.05).clamp(18.0, 20.0),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: screenWidth * 0.03),
                   Expanded(
                     child: Text(
                       'Pilih shift Anda yang ingin ditukar dengan shift karyawan lain',
                       style: TextStyle(
                         color: Colors.blue.shade900,
-                        fontSize: 13,
+                        fontSize: bodyFontSize,
                       ),
                     ),
                   ),
@@ -144,13 +153,16 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(padding),
               child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _selectDate,
-                      icon: const Icon(Icons.calendar_today, size: 18),
+                      icon: Icon(
+                        Icons.calendar_today,
+                        size: (screenWidth * 0.045).clamp(16.0, 18.0),
+                      ),
                       label: Text(
                         _selectedDate == null
                             ? 'Filter Tanggal'
@@ -158,11 +170,13 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                                 'dd MMMM yyyy',
                                 'id_ID',
                               ).format(_selectedDate!),
-                        style: const TextStyle(fontSize: 13),
+                        style: TextStyle(fontSize: bodyFontSize),
                       ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: EdgeInsets.symmetric(
+                          vertical: screenHeight * 0.015,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -170,9 +184,12 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                     ),
                   ),
                   if (_selectedDate != null) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: screenWidth * 0.02),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 20),
+                      icon: Icon(
+                        Icons.close,
+                        size: (screenWidth * 0.05).clamp(18.0, 20.0),
+                      ),
                       onPressed: () {
                         setState(() {
                           _selectedDate = null;
@@ -198,22 +215,25 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                   : _errorMessage != null
                   ? Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: EdgeInsets.all(padding),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.error_outline,
-                              size: 64,
+                              size: (screenWidth * 0.16).clamp(48.0, 64.0),
                               color: AppColors.error.withOpacity(0.5),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: screenHeight * 0.02),
                             Text(
                               _errorMessage!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.black54),
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontSize: bodyFontSize,
+                              ),
                             ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: screenHeight * 0.02),
                             ElevatedButton(
                               onPressed: _loadShifts,
                               style: ElevatedButton.styleFrom(
@@ -222,8 +242,15 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenWidth * 0.08,
+                                  vertical: screenHeight * 0.015,
+                                ),
                               ),
-                              child: const Text('Coba Lagi'),
+                              child: Text(
+                                'Coba Lagi',
+                                style: TextStyle(fontSize: bodyFontSize),
+                              ),
                             ),
                           ],
                         ),
@@ -236,19 +263,19 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                         children: [
                           Icon(
                             Icons.calendar_today_outlined,
-                            size: 64,
+                            size: (screenWidth * 0.16).clamp(48.0, 64.0),
                             color: Colors.grey.shade300,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: screenHeight * 0.02),
                           Text(
                             'Tidak ada shift yang tersedia',
                             style: TextStyle(
                               color: Colors.grey.shade600,
-                              fontSize: 16,
+                              fontSize: bodyFontSize,
                             ),
                           ),
                           if (_selectedDate != null) ...[
-                            const SizedBox(height: 8),
+                            SizedBox(height: screenHeight * 0.01),
                             TextButton(
                               onPressed: () {
                                 setState(() {
@@ -257,24 +284,33 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                                 });
                                 _loadShifts();
                               },
-                              child: const Text('Hapus Filter'),
+                              child: Text(
+                                'Hapus Filter',
+                                style: TextStyle(fontSize: bodyFontSize),
+                              ),
                             ),
                           ],
                         ],
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(horizontal: padding),
                       itemCount: _shifts.length,
                       itemBuilder: (context, index) {
                         final shift = _shifts[index];
                         final isSelected = _selectedShiftId == shift.id;
-                        return _buildShiftCard(shift, isSelected);
+                        return _buildShiftCard(
+                          shift,
+                          isSelected,
+                          screenWidth,
+                          bodyFontSize,
+                          smallFontSize,
+                        );
                       },
                     ),
             ),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(padding),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -293,16 +329,18 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(
+                        vertical: screenHeight * 0.02,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Lanjut Pilih Karyawan',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: bodyFontSize,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -321,7 +359,10 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
     double screenWidth,
     double screenHeight,
     double padding,
+    double titleFontSize,
   ) {
+    final iconSize = (screenWidth * 0.1).clamp(36.0, 42.0);
+
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: padding,
@@ -333,15 +374,15 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: screenWidth * 0.1,
-              height: screenWidth * 0.1,
+              width: iconSize,
+              height: iconSize,
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.arrow_back_ios_new,
-                size: screenWidth * 0.045,
+                size: (screenWidth * 0.045).clamp(16.0, 18.0),
                 color: Colors.black87,
               ),
             ),
@@ -350,24 +391,30 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
           Text(
             "Pilih Shift Anda",
             style: TextStyle(
-              fontSize: screenWidth * 0.048,
+              fontSize: titleFontSize,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
               letterSpacing: 0.5,
             ),
           ),
           const Spacer(),
-          SizedBox(width: screenWidth * 0.1),
+          SizedBox(width: iconSize),
         ],
       ),
     );
   }
 
-  Widget _buildShiftCard(JadwalShift shift, bool isSelected) {
+  Widget _buildShiftCard(
+    JadwalShift shift,
+    bool isSelected,
+    double screenWidth,
+    double bodyFontSize,
+    double smallFontSize,
+  ) {
     return GestureDetector(
       onTap: () => _selectShift(shift.id),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: EdgeInsets.only(bottom: screenWidth * 0.03),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -385,14 +432,14 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(screenWidth * 0.035),
           child: Row(
             children: [
               Container(
-                width: 60,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 8,
+                width: (screenWidth * 0.15).clamp(50.0, 60.0),
+                padding: EdgeInsets.symmetric(
+                  vertical: screenWidth * 0.03,
+                  horizontal: screenWidth * 0.02,
                 ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -416,21 +463,21 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                   children: [
                     Text(
                       '${shift.tanggal.day}',
-                      style: const TextStyle(
-                        fontSize: 24,
+                      style: TextStyle(
+                        fontSize: (screenWidth * 0.06).clamp(20.0, 24.0),
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         height: 1,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: screenWidth * 0.01),
                     Text(
                       DateFormat(
                         'MMM',
                         'id_ID',
                       ).format(shift.tanggal).toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 10,
+                      style: TextStyle(
+                        fontSize: (screenWidth * 0.026).clamp(9.0, 10.0),
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                         letterSpacing: 0.5,
@@ -439,7 +486,7 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: screenWidth * 0.035),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,17 +494,17 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                     Text(
                       shift.hari,
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: bodyFontSize,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey.shade800,
                         letterSpacing: 0.2,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: screenWidth * 0.02),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.025,
+                        vertical: screenWidth * 0.01,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.15),
@@ -465,26 +512,26 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
                       ),
                       child: Text(
                         'Shift ${shift.shiftCode}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          fontSize: smallFontSize,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: screenWidth * 0.02),
                     Row(
                       children: [
                         Icon(
                           Icons.access_time,
-                          size: 15,
+                          size: (screenWidth * 0.038).clamp(13.0, 15.0),
                           color: Colors.grey.shade600,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: screenWidth * 0.015),
                         Text(
                           '${shift.waktuMulai ?? '-'} - ${shift.waktuSelesai ?? '-'}',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: smallFontSize,
                             color: Colors.grey.shade700,
                             fontWeight: FontWeight.w500,
                           ),
@@ -496,17 +543,21 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
               ),
               if (isSelected)
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: EdgeInsets.all(screenWidth * 0.015),
                   decoration: const BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: Colors.white, size: 20),
+                  child: Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: (screenWidth * 0.05).clamp(18.0, 20.0),
+                  ),
                 )
               else
                 Container(
-                  width: 28,
-                  height: 28,
+                  width: (screenWidth * 0.07).clamp(24.0, 28.0),
+                  height: (screenWidth * 0.07).clamp(24.0, 28.0),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.grey.shade400, width: 2),

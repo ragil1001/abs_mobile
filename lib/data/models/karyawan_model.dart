@@ -13,6 +13,7 @@ class Karyawan {
   final String tanggalLahir;
   final String tanggalBergabung;
   final String status;
+  final int sisaCutiTahunan; // NEW: Sisa cuti tahunan
   final Divisi divisi;
   final Jabatan jabatan;
   final Project? project;
@@ -28,6 +29,7 @@ class Karyawan {
     required this.tanggalLahir,
     required this.tanggalBergabung,
     required this.status,
+    required this.sisaCutiTahunan, // NEW
     required this.divisi,
     required this.jabatan,
     this.project,
@@ -46,6 +48,7 @@ class Karyawan {
         tanggalLahir: json['tanggal_lahir'] ?? '',
         tanggalBergabung: json['tanggal_bergabung'] ?? '',
         status: json['status'] ?? '',
+        sisaCutiTahunan: json['sisa_cuti_tahunan'] ?? 12, // NEW: Default 12
         divisi: json['divisi'] != null
             ? Divisi.fromJson(json['divisi'] as Map<String, dynamic>)
             : Divisi(id: 0, nama: ''),
@@ -57,8 +60,8 @@ class Karyawan {
             : null,
       );
     } catch (e) {
-      print('Error parsing Karyawan: $e');
-      print('JSON data: $json');
+      // print('Error parsing Karyawan: $e');
+      // print('JSON data: $json');
       rethrow;
     }
   }
@@ -110,5 +113,15 @@ class Karyawan {
     } catch (e) {
       return tanggalBergabung;
     }
+  }
+
+  // NEW: Helper untuk cek apakah cuti cukup
+  bool isCutiTahunanCukup(int jumlahHari) {
+    return sisaCutiTahunan >= jumlahHari;
+  }
+
+  // NEW: Get formatted sisa cuti
+  String get formattedSisaCuti {
+    return '$sisaCutiTahunan hari';
   }
 }

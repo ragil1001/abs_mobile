@@ -10,8 +10,8 @@ class JadwalHarian {
   final String? waktuSelesai;
   final bool isLibur;
   final bool isWeekend;
-  final bool isDitukar; // TAMBAHAN: Flag untuk tukar shift
-  final TukarShiftInfo? tukarShiftInfo; // TAMBAHAN: Info tukar shift
+  final bool isDitukar;
+  final TukarShiftInfo? tukarShiftInfo;
 
   JadwalHarian({
     required this.id,
@@ -25,12 +25,19 @@ class JadwalHarian {
     this.waktuSelesai,
     required this.isLibur,
     required this.isWeekend,
-    this.isDitukar = false, // Default false
+    this.isDitukar = false,
     this.tukarShiftInfo,
   });
 
   factory JadwalHarian.fromJson(Map<String, dynamic> json) {
-    return JadwalHarian(
+    // Debug print untuk melihat raw JSON
+    print('🔍 Raw JSON Jadwal:');
+    print('   shift_code: ${json['shift_code']}');
+    print('   waktu_mulai: ${json['waktu_mulai']}');
+    print('   waktu_selesai: ${json['waktu_selesai']}');
+    print('   is_libur: ${json['is_libur']}');
+
+    final jadwal = JadwalHarian(
       id: json['id'] ?? 0,
       tanggal: json['tanggal'] ?? '',
       hari: json['hari'] ?? '',
@@ -42,18 +49,26 @@ class JadwalHarian {
       waktuSelesai: json['waktu_selesai'],
       isLibur: json['is_libur'] ?? false,
       isWeekend: json['is_weekend'] ?? false,
-      isDitukar: json['is_ditukar'] ?? false, // Parse dari backend
+      isDitukar: json['is_ditukar'] ?? false,
       tukarShiftInfo: json['tukar_shift_info'] != null
           ? TukarShiftInfo.fromJson(json['tukar_shift_info'])
           : null,
     );
+
+    // Debug print setelah parsing
+    print('✅ Parsed Jadwal:');
+    print('   shiftCode: ${jadwal.shiftCode}');
+    print('   waktuMulai: ${jadwal.waktuMulai}');
+    print('   waktuSelesai: ${jadwal.waktuSelesai}');
+    print('   isLibur: ${jadwal.isLibur}');
+
+    return jadwal;
   }
 }
 
-// Model untuk info tukar shift
 class TukarShiftInfo {
   final int id;
-  final String dengan; // Nama karyawan yang ditukar
+  final String dengan;
 
   TukarShiftInfo({required this.id, required this.dengan});
 
@@ -62,7 +77,6 @@ class TukarShiftInfo {
   }
 }
 
-// Kelas lainnya tetap sama...
 class JadwalBulan {
   final List<JadwalHarian> jadwals;
   final PeriodInfo periodInfo;
@@ -75,6 +89,9 @@ class JadwalBulan {
   });
 
   factory JadwalBulan.fromJson(Map<String, dynamic> json) {
+    print('🔍 Raw JSON JadwalBulan:');
+    print('   data count: ${(json['data'] as List?)?.length ?? 0}');
+
     return JadwalBulan(
       jadwals:
           (json['data'] as List?)
