@@ -6,7 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/presensi_provider.dart'; // TAMBAH INI
+import '../providers/presensi_provider.dart';
 import '../data/services/dio_service.dart';
 import '../core/config/app_config.dart';
 import 'dart:convert';
@@ -264,7 +264,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
         throw ApiException('Token tidak ditemukan');
       }
 
-      // ✅ COMPRESS FOTO SEBELUM UPLOAD
+      // Compress foto sebelum upload
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Memproses foto...'),
@@ -402,7 +402,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
         );
       }
     } finally {
-      // ✅ CLEANUP: Delete compressed file
+      // Cleanup: Delete compressed file
       if (compressedFile != null) {
         try {
           await compressedFile.delete();
@@ -411,12 +411,11 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
     }
   }
 
-  // TAMBAH METHOD INI: Handle success dan trigger refresh
+  // Handle success dan trigger refresh
   Future<void> _handleSuccessAndReturn() async {
     if (!mounted) return;
 
-    // STEP 1: Trigger refresh di PresensiProvider
-    // Ini akan mem-fetch data terbaru dari backend
+    // Trigger refresh di PresensiProvider
     try {
       final presensiProvider = Provider.of<PresensiProvider>(
         context,
@@ -429,16 +428,8 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
     if (!mounted) return;
 
-    // STEP 2: Pop hingga kembali ke HomePage
-    // Navigator.pop() dipanggil 3 kali:
-    // 1. Close SelfiePage
-    // 2. Close AbsensiPage
-    // 3. Kembali ke HomePage (dalam MainApp dengan PageView)
-
-    // Cara yang lebih aman: gunakan named route atau popUntil
+    // Pop hingga kembali ke HomePage
     Navigator.of(context).popUntil((route) {
-      // Pop sampai ke route MainApp (HomePage)
-      // Cek apakah route name adalah home atau tidak ada name (root)
       return route.settings.name == null ||
           route.settings.name == '/home' ||
           route.isFirst;
@@ -550,7 +541,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Camera preview
+        // Camera preview - Full screen tanpa SafeArea
         FutureBuilder<void>(
           future: _initializeControllerFuture,
           builder: (context, snapshot) {
@@ -564,58 +555,61 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
           },
         ),
 
-        // Top bar
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => Navigator.pop(context),
-                      icon: const Icon(
-                        Icons.close,
+        // ✅ Top bar - SafeArea HANYA di atas
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SafeArea(
+            bottom: false, // Tidak ada padding bawah
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => Navigator.pop(context),
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      widget.mode == 'masuk'
+                          ? 'Presensi Masuk'
+                          : 'Presensi Pulang',
+                      style: const TextStyle(
                         color: Colors.white,
-                        size: 28,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        widget.mode == 'masuk'
-                            ? 'Presensi Masuk'
-                            : 'Presensi Pulang',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 48),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
             ),
           ),
         ),
 
-        // Bottom controls
+        // ✅ Bottom controls - SafeArea HANYA di bawah
         Positioned(
           bottom: 0,
           left: 0,
           right: 0,
           child: SafeArea(
+            top: false, // Tidak ada padding atas
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 24),
               decoration: BoxDecoration(

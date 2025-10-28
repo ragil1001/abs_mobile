@@ -105,6 +105,23 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage>
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('=== DETAIL ABSENSI DEBUG ===');
+    debugPrint('Data received: ${widget.data}');
+
+    try {
+      final tanggal = widget.data["tanggal"] as DateTime;
+      debugPrint('✅ tanggal parsed: $tanggal');
+    } catch (e) {
+      debugPrint('❌ Error parsing tanggal: $e');
+    }
+
+    try {
+      final karyawan = widget.data["karyawan"] as Map<String, dynamic>? ?? {};
+      debugPrint('✅ karyawan parsed: $karyawan');
+    } catch (e) {
+      debugPrint('❌ Error parsing karyawan: $e');
+    }
+
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final padding = screenWidth * 0.06;

@@ -45,7 +45,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   bool _dalamRadius = false;
   double? _jarakKeProject;
 
-  // ✅ NEW: Validation status tracking
+  // Validation status tracking
   String _validationStatus = 'Memuat...';
   bool _isInitialCheckComplete = false;
 
@@ -92,7 +92,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   Future<void> _initializePresensi() async {
     if (_isDisposed || !mounted) return;
 
-    // Parallel execution untuk mempercepat
     await Future.wait([_cekPresensi(), _determinePositionAndListen()]);
   }
 
@@ -121,7 +120,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         setState(() {
           _presensiData = response['data'];
 
-          // ✅ CRITICAL FIX: Parse jabatan excluded dari response
           final karyawanData = response['data']['karyawan'];
           _isJabatanExcluded =
               karyawanData != null &&
@@ -177,24 +175,21 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         return;
       }
 
-      // ✅ Update status
       if (mounted) {
         setState(() {
           _validationStatus = 'Mendapatkan GPS...';
         });
       }
 
-      // ✅ OPTIMIZED: Timeout lebih pendek untuk initial position
       try {
         Position pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5), // Reduced from 8
+          timeLimit: const Duration(seconds: 5),
         );
         if (mounted && !_isDisposed) {
           await _applyNewPosition(pos, initial: true);
         }
       } catch (_) {
-        // Jika timeout, position stream akan menghandle
         debugPrint('⚠️ Initial position timeout, waiting for stream...');
       }
 
@@ -228,10 +223,7 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       _mapController.move(_currentLatLng!, 16.0);
     }
 
-    // ✅ CRITICAL FIX: Jalankan fake GPS dan validasi lokasi secara paralel
-    // HANYA jika presensi data sudah loaded
     if (_presensiData != null && _currentLatLng != null) {
-      // ✅ OPTIMIZED: Parallel execution dengan timeout
       await Future.wait([
         _detectFakeGps(pos).timeout(
           const Duration(seconds: 3),
@@ -243,7 +235,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           const Duration(seconds: 3),
           onTimeout: () {
             debugPrint('⚠️ Location validation timeout');
-            // Set default values on timeout
             if (mounted && !_isDisposed) {
               setState(() {
                 _isValidatingLocation = false;
@@ -254,7 +245,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         ),
       ]);
 
-      // ✅ Mark initial check complete
       if (mounted && !_isDisposed && !_isInitialCheckComplete) {
         setState(() {
           _isInitialCheckComplete = true;
@@ -277,7 +267,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
           _fakeGpsMessage = result.message;
           _detectionTypes = result.detections;
 
-          // ✅ Update validation status
           if (_isFakeGpsDetected) {
             _validationStatus = 'Fake GPS Terdeteksi';
           }
@@ -311,7 +300,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
             _dalamRadius = response['data']['dalam_radius'] ?? false;
             _jarakKeProject = response['data']['jarak']?.toDouble();
 
-            // ✅ CRITICAL FIX: Update _isJabatanExcluded dari response validasi
             _isJabatanExcluded =
                 response['data']['is_jabatan_excluded'] ?? _isJabatanExcluded;
 
@@ -320,7 +308,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
             debugPrint('   Jarak: $_jarakKeProject');
             debugPrint('   Jabatan Excluded: $_isJabatanExcluded');
 
-            // ✅ Update validation status
             if (_isJabatanExcluded) {
               _validationStatus = 'Siap (Jabatan Dikecualikan)';
             } else if (_dalamRadius) {
@@ -389,7 +376,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
   }
 
   void _handlePresensiButton() {
-    // ✅ CRITICAL FIX: Check jabatan excluded FIRST before other validations
     if (_isJabatanExcluded) {
       debugPrint('🔓 Jabatan dikecualikan - bypass radius check');
       _navigateToSelfie();
@@ -422,7 +408,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
       return;
     }
 
-    // Check if within radius (only for non-excluded jabatan)
     if (!_dalamRadius) {
       if (_jarakKeProject != null) {
         final radius = _presensiData?['project']?['radius']?.toDouble() ?? 0.0;
@@ -691,7 +676,6 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
         : null;
     final projectRadius = project?['radius']?.toDouble() ?? 0.0;
 
-    // ✅ CRITICAL FIX: Determine if button should be enabled
     final canPresensiByLocation = _dalamRadius || _isJabatanExcluded;
     final canPresensiByTime = bisaMasuk || bisaPulang;
     final isButtonEnabled =
@@ -801,105 +785,124 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
             ],
           ),
 
-          // Top controls
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  FloatingActionButton(
-                    heroTag: "back",
-                    mini: true,
-                    backgroundColor: Colors.white,
-                    elevation: 2,
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(context);
-                    },
-                    child: const Icon(Icons.arrow_back, color: Colors.black),
-                  ),
-                  Row(
-                    children: [
-                      FloatingActionButton(
-                        heroTag: "my_location",
-                        mini: true,
-                        backgroundColor: Colors.white,
-                        elevation: 2,
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          if (_currentLatLng != null) {
-                            _mapController.move(_currentLatLng!, 16.0);
-                          }
-                        },
-                        child: const Icon(
-                          Icons.my_location,
-                          color: Colors.blue,
+          // ✅ Top controls - HANYA SafeArea di bagian atas
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false, // Tidak ada padding bawah
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    FloatingActionButton(
+                      heroTag: "back",
+                      mini: true,
+                      backgroundColor: Colors.white,
+                      elevation: 2,
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(context);
+                      },
+                      child: const Icon(Icons.arrow_back, color: Colors.black),
+                    ),
+                    Row(
+                      children: [
+                        FloatingActionButton(
+                          heroTag: "my_location",
+                          mini: true,
+                          backgroundColor: Colors.white,
+                          elevation: 2,
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            if (_currentLatLng != null) {
+                              _mapController.move(_currentLatLng!, 16.0);
+                            }
+                          },
+                          child: const Icon(
+                            Icons.my_location,
+                            color: Colors.blue,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      FloatingActionButton(
-                        heroTag: "refresh",
-                        mini: true,
-                        backgroundColor: Colors.white,
-                        elevation: 2,
-                        onPressed: _onRefreshPressed,
-                        child: const Icon(Icons.refresh, color: Colors.black),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 8),
+                        FloatingActionButton(
+                          heroTag: "refresh",
+                          mini: true,
+                          backgroundColor: Colors.white,
+                          elevation: 2,
+                          onPressed: _onRefreshPressed,
+                          child: const Icon(Icons.refresh, color: Colors.black),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
 
-          // Fake GPS Warning (PRIORITY HIGHEST)
+          // Fake GPS Warning
           if (_isFakeGpsDetected)
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 70, 16, 0),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.security, color: Colors.white, size: 24),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'FAKE GPS TERDETEKSI',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _fakeGpsMessage ?? 'Sistem mendeteksi fake GPS',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 70, 16, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.security,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'FAKE GPS TERDETEKSI',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _fakeGpsMessage ?? 'Sistem mendeteksi fake GPS',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -907,51 +910,57 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
 
           // Jabatan excluded info
           if (_isJabatanExcluded && !_isFakeGpsDetected)
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 70, 16, 0),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.shield, color: Colors.white, size: 24),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'PENGECUALIAN RADIUS AKTIF',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Jabatan Anda dikecualikan dari pengecekan radius.',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 70, 16, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.shield, color: Colors.white, size: 24),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'PENGECUALIAN RADIUS AKTIF',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Jabatan Anda dikecualikan dari pengecekan radius.',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -962,277 +971,296 @@ class _AbsensiPageState extends State<AbsensiPage> with WidgetsBindingObserver {
               !_isFakeGpsDetected &&
               !_dalamRadius &&
               _jarakKeProject != null)
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 70, 16, 0),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Anda berada ${_jarakKeProject!.toStringAsFixed(0)} meter dari lokasi project (radius: ${projectRadius.toStringAsFixed(0)}m)',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 70, 16, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Anda berada ${_jarakKeProject!.toStringAsFixed(0)} meter dari lokasi project (radius: ${projectRadius.toStringAsFixed(0)}m)',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
 
-          // Bottom presensi container
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Project name
-                  Text(
-                    project?['nama'] ?? 'Project',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+          // ✅ Bottom presensi container - SafeArea HANYA di bawah
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              top: false, // Tidak ada padding atas
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    project?['bagian'] ?? '',
-                    style: const TextStyle(fontSize: 14, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Shift info
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Shift ${shift?['kode'] ?? ''}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                '${shift?['waktu_mulai'] ?? ''} - ${shift?['waktu_selesai'] ?? ''}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          _todayString(),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ✅ Validation Status Indicator
-                  if (!_isInitialCheckComplete)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Project name
+                    Text(
+                      project?['nama'] ?? 'Project',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      project?['bagian'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Shift info
+                    Container(
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue[200]!, width: 1),
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.blue[700]!,
-                              ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Shift ${shift?['kode'] ?? ''}',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '${shift?['waktu_mulai'] ?? ''} - ${shift?['waktu_selesai'] ?? ''}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _validationStatus,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.blue[900],
-                                fontWeight: FontWeight.w600,
-                              ),
+                          Text(
+                            _todayString(),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                  if (_isInitialCheckComplete) ...[
-                    // Presensi status
-                    Row(
-                      children: [
-                        Icon(
-                          sudahMasuk ? Icons.check_circle : Icons.access_time,
-                          color: sudahMasuk ? Colors.green : Colors.orange,
-                          size: 20,
+                    const SizedBox(height: 16),
+
+                    // Validation Status Indicator
+                    if (!_isInitialCheckComplete)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          sudahMasuk
-                              ? 'Sudah presensi masuk'
-                              : 'Belum presensi masuk',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: sudahMasuk ? Colors.green : Colors.orange,
-                            fontWeight: FontWeight.w600,
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.blue[200]!,
+                            width: 1,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-
-                  const SizedBox(height: 12),
-
-                  // Presensi button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isButtonEnabled ? _handlePresensiButton : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: !_isInitialCheckComplete
-                            ? Colors.grey[400]
-                            : _isFakeGpsDetected
-                            ? Colors.red
-                            : isButtonEnabled
-                            ? Colors.blue
-                            : Colors.grey,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: isButtonEnabled ? 2 : 0,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (!_isInitialCheckComplete) ...[
-                            const SizedBox(
+                        child: Row(
+                          children: [
+                            SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
+                                  Colors.blue[700]!,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
-                          ],
-                          Text(
-                            !_isInitialCheckComplete
-                                ? _validationStatus
-                                : _isFakeGpsDetected
-                                ? 'Fake GPS Terdeteksi'
-                                : _isValidatingLocation
-                                ? 'Memvalidasi Lokasi...'
-                                : bisaMasuk
-                                ? 'Presensi Masuk'
-                                : bisaPulang
-                                ? 'Presensi Pulang'
-                                : 'Tidak Dapat Presensi',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                _validationStatus,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.blue[900],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
 
-                  // Info text if jabatan excluded
-                  if (_isJabatanExcluded &&
-                      _isInitialCheckComplete &&
-                      canPresensiByTime)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    if (_isInitialCheckComplete) ...[
+                      // Presensi status
+                      Row(
                         children: [
                           Icon(
-                            Icons.info_outline,
-                            size: 14,
-                            color: Colors.blue,
+                            sudahMasuk ? Icons.check_circle : Icons.access_time,
+                            color: sudahMasuk ? Colors.green : Colors.orange,
+                            size: 20,
                           ),
-                          SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Jabatan Anda tidak perlu dalam radius untuk presensi',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.blue,
-                              ),
-                              textAlign: TextAlign.center,
+                          const SizedBox(width: 8),
+                          Text(
+                            sudahMasuk
+                                ? 'Sudah presensi masuk'
+                                : 'Belum presensi masuk',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: sudahMasuk ? Colors.green : Colors.orange,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
+                    ],
+
+                    const SizedBox(height: 12),
+
+                    // Presensi button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isButtonEnabled
+                            ? _handlePresensiButton
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: !_isInitialCheckComplete
+                              ? Colors.grey[400]
+                              : _isFakeGpsDetected
+                              ? Colors.red
+                              : isButtonEnabled
+                              ? Colors.blue
+                              : Colors.grey,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: isButtonEnabled ? 2 : 0,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (!_isInitialCheckComplete) ...[
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            Text(
+                              !_isInitialCheckComplete
+                                  ? _validationStatus
+                                  : _isFakeGpsDetected
+                                  ? 'Fake GPS Terdeteksi'
+                                  : _isValidatingLocation
+                                  ? 'Memvalidasi Lokasi...'
+                                  : bisaMasuk
+                                  ? 'Presensi Masuk'
+                                  : bisaPulang
+                                  ? 'Presensi Pulang'
+                                  : 'Tidak Dapat Presensi',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                ],
+
+                    // Info text if jabatan excluded
+                    if (_isJabatanExcluded &&
+                        _isInitialCheckComplete &&
+                        canPresensiByTime)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 14,
+                              color: Colors.blue,
+                            ),
+                            SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Jabatan Anda tidak perlu dalam radius untuk presensi',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.blue,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
