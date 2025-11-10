@@ -74,51 +74,116 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
           }
           break;
         default: // "Semua"
-          startDate = endDate.subtract(const Duration(days: 90));
+          startDate = endDate.subtract(const Duration(days: 60));
       }
 
       final response = await DioService().get(
         '${AppConfig.mobileApiPrefix}/presensi/history?start_date=${_formatDate(startDate)}&end_date=${_formatDate(endDate)}',
       );
 
+      // Tambahkan di dalam _loadHistoryAbsensi() method
+      // Setelah response sukses, filter data sebelum diproses
+
       if (response['success'] == true) {
         final List<dynamic> data = response['data'] ?? [];
 
         setState(() {
-          _absensi = data.where((item) => item['presensi_masuk'] != null).map((
-            item,
-          ) {
-            final presensiMasuk =
-                item['presensi_masuk'] as Map<String, dynamic>;
-            final presensiPulang =
-                item['presensi_pulang'] as Map<String, dynamic>?;
+          // ✅ CRITICAL FIX: Filter data - sembunyikan hanya yang belum ada jadwal atau belum waktunya
+          _absensi = data
+              .where((item) {
+                final isClickable = item['is_clickable'] == true;
+                final status = item['status'] as String;
+                final presensiMasuk =
+                    item['presensi_masuk'] as Map<String, dynamic>?;
 
-            final status = presensiMasuk['status'] as String;
+                // ✅ LOGIC: Tampilkan jika:
+                // 1. Ada data presensi_masuk (berarti sudah ada record di database)
+                // 2. Status bukan 'alpa' dengan is_clickable false (alpa otomatis yang belum terjadi)
 
-            return {
-              "id": item['id'],
-              "tanggal": DateTime.parse(item['tanggal']),
-              "hari": item['hari'],
-              "status": status,
-              "status_display": _getStatusDisplay(status),
-              "masuk": _parseWaktu(presensiMasuk['waktu']),
-              "pulang": presensiPulang != null
-                  ? _parseWaktu(presensiPulang['waktu'])
-                  : '-',
-              "badge": _getBadgeList(presensiMasuk, presensiPulang),
-              "shift": item['shift'] ?? {},
-              "karyawan": item['karyawan'] ?? {},
-              "project": item['project'] ?? {},
-              "presensi_masuk": presensiMasuk,
-              "presensi_pulang": presensiPulang,
-            };
-          }).toList();
+                // Jika ada presensi_masuk, berarti data sudah ada di database -> TAMPILKAN
+                if (presensiMasuk != null) {
+                  debugPrint(
+                    '✅ Show: Status $status dengan presensi_masuk (tanggal: ${item['tanggal']})',
+                  );
+                  return true;
+                }
+
+                // Jika tidak ada presensi_masuk dan status alpa -> SEMBUNYIKAN (belum terjadi)
+                if (status == 'alpa' && presensiMasuk == null) {
+                  debugPrint(
+                    '🚫 Hidden: Alpa belum terjadi (tanggal: ${item['tanggal']})',
+                  );
+                  return false;
+                }
+
+                // Tampilkan semua yang lain
+                return true;
+              })
+              .map((item) {
+                final presensiMasuk =
+                    item['presensi_masuk'] as Map<String, dynamic>?;
+                final presensiPulang =
+                    item['presensi_pulang'] as Map<String, dynamic>?;
+                final status = item['status'] as String;
+
+                // ✅ CRITICAL: Ambil is_clickable dari backend
+                final isClickable = item['is_clickable'] == true;
+
+                // ✅ CRITICAL: Cek status presensi masuk
+                final statusMasuk = presensiMasuk?['status'] as String?;
+                final statusPulang = presensiPulang?['status'] as String?;
+
+                // ✅ Jika status presensi masuk = 'libur', tampilkan strip
+                final shouldShowStripMasuk = statusMasuk == 'libur';
+                final shouldShowStripPulang = statusPulang == 'libur';
+
+                debugPrint(
+                  '📋 Item: status=$status, statusMasuk=$statusMasuk, statusPulang=$statusPulang, showStripMasuk=$shouldShowStripMasuk',
+                );
+
+                return {
+                  "id": item['id'],
+                  "tanggal": DateTime.parse(item['tanggal']),
+                  "hari": item['hari'],
+                  "status": status,
+                  "status_display": _getStatusDisplay(status),
+                  "masuk": shouldShowStripMasuk
+                      ? '-' // ✅ Strip jika status presensi masuk = 'libur'
+                      : (presensiMasuk != null && presensiMasuk['waktu'] != null
+                            ? _parseWaktu(presensiMasuk['waktu'])
+                            : '-'),
+                  "pulang": shouldShowStripPulang
+                      ? '-' // ✅ Strip jika status presensi pulang = 'libur'
+                      : (presensiPulang != null &&
+                                presensiPulang['waktu'] != null
+                            ? _parseWaktu(presensiPulang['waktu'])
+                            : '-'),
+                  "badge": _getBadgeList(presensiMasuk, presensiPulang),
+                  "shift": item['shift'] ?? {},
+                  "karyawan": item['karyawan'] ?? {},
+                  "project": item['project'] ?? {},
+                  "presensi_masuk": presensiMasuk,
+                  "presensi_pulang": presensiPulang,
+                  "is_clickable": isClickable,
+                };
+              })
+              .toList();
+
           _isLoading = false;
         });
+
+        debugPrint('✅ History loaded (filtered): ${_absensi.length} items');
+        debugPrint(
+          'Clickable: ${_absensi.where((e) => e["is_clickable"] == true).length}',
+        );
+        debugPrint(
+          'Not clickable: ${_absensi.where((e) => e["is_clickable"] == false).length}',
+        );
       } else {
         throw Exception(response['message'] ?? 'Gagal memuat data');
       }
     } catch (e) {
+      debugPrint('❌ Error loading history: $e');
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -133,16 +198,50 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
   String _getStatusDisplay(String status) {
     switch (status) {
       case "hadir":
+        return "Hadir";
       case "terlambat":
-        return "Reguler";
+        return "Terlambat";
+      case "lembur_pending":
+        return "Lembur (Pending)";
+      case "lembur":
+        return "Lembur";
       case "alpa":
         return "Alpa";
       case "izin":
         return "Izin";
       case "libur":
         return "Libur";
+      case "pulang_cepat":
+        return "Pulang Cepat";
+      case "tidak_presensi_pulang":
+        return "Tidak Presensi Pulang";
       default:
         return status;
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case "hadir":
+        return Colors.green;
+      case "terlambat":
+        return Colors.orange;
+      case "lembur_pending":
+        return Colors.purple;
+      case "lembur":
+        return Colors.purple.shade700;
+      case "alpa":
+        return Colors.red;
+      case "izin":
+        return Colors.blue;
+      case "libur":
+        return Colors.grey.shade600;
+      case "pulang_cepat":
+        return Colors.orange.shade400;
+      case "tidak_presensi_pulang":
+        return Colors.red.shade400;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -181,8 +280,10 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
 
     if (presensiPulang != null) {
       final statusPulang = presensiPulang['status'] as String?;
-      if (statusPulang == 'lembur' || statusPulang == 'lembur_pending') {
-        badges.add('LB');
+      if (statusPulang == 'lembur_pending') {
+        badges.add('LB*'); // ✅ Pending lembur
+      } else if (statusPulang == 'lembur') {
+        badges.add('LB'); // ✅ Lembur confirmed
       } else if (statusPulang == 'pulang_cepat') {
         badges.add('PC');
       } else if (statusPulang == 'tidak_presensi_pulang') {
@@ -191,26 +292,6 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
     }
 
     return badges;
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case "hadir":
-      case "terlambat":
-        return Colors.orange;
-      case "alpa":
-        return Colors.red;
-      case "izin":
-        return Colors.blue;
-      case "libur":
-        return Colors.grey;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  bool _isRegularStatus(String status) {
-    return status == "hadir" || status == "terlambat";
   }
 
   Future<void> _showFilterDialog() async {
@@ -375,7 +456,34 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
                   : _errorMessage != null
                   ? _buildErrorState(screenWidth, padding)
                   : _absensi.isEmpty
-                  ? const Center(child: Text("Tidak ada data absensi"))
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.event_busy,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Tidak ada data presensi",
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            "Pada periode yang dipilih",
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                   : RefreshIndicator(
                       onRefresh: () async {
                         _lastRefreshTime = null;
@@ -516,10 +624,10 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
     final tanggal = data["tanggal"] as DateTime;
     final status = data["status"] as String;
     final statusColor = _getStatusColor(status);
-    final isRegular = _isRegularStatus(status);
+    final isClickable = data["is_clickable"] == true;
 
     return GestureDetector(
-      onTap: isRegular
+      onTap: isClickable
           ? () async {
               await Navigator.push(
                 context,
@@ -527,7 +635,6 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
                   builder: (_) => DetailAbsensiPage(data: data),
                 ),
               );
-              // Refresh after returning
               if (mounted && _shouldRefresh) {
                 _loadHistoryAbsensi();
               }
@@ -550,7 +657,7 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
           height: screenHeight * 0.11,
           child: Row(
             children: [
-              // Status color indicator
+              // ✅ Warna strip tepi - ini yang membedakan status
               Container(
                 width: 6,
                 decoration: BoxDecoration(
@@ -561,8 +668,6 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
                   ),
                 ),
               ),
-
-              // Tanggal
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -585,10 +690,7 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
                   ],
                 ),
               ),
-
               Container(width: 2, color: const Color(0xFFF0F0F0)),
-
-              // Content
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -635,18 +737,17 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
                       const SizedBox(height: 2),
                       Text(
                         data["status_display"],
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: _getStatusTextColor(status),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-
-              // Waktu masuk/pulang - HANYA untuk status reguler
-              if (isRegular) ...[
+              // ✅ Hanya tampilkan waktu masuk/pulang jika clickable
+              if (isClickable)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Row(
@@ -697,12 +798,24 @@ class _HistoryAbsensiPageState extends State<HistoryAbsensiPage> {
                     ],
                   ),
                 ),
-              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  Color _getStatusTextColor(String status) {
+    switch (status) {
+      case 'alpa':
+        return Colors.red.shade700;
+      case 'izin':
+        return Colors.blue.shade700;
+      case 'libur':
+        return Colors.grey.shade600;
+      default:
+        return Colors.black54;
+    }
   }
 
   String _bulanShort(int month) {

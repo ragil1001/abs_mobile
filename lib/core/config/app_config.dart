@@ -1,10 +1,10 @@
 class AppConfig {
   // API Configuration
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; // Android emulator
-  // static const String baseUrl =
-  //     'http://10.70.173.254:8000/api'; // iOS simulator
+  //   static const String baseUrl =
+  //       'http://10.70.173.254:8000/api'; // iOS simulator
   static const String baseUrl =
-      'https://backend-app.reuse-mart.com/api'; // Production
+      'https://irreparable-arnav-creamier.ngrok-free.dev/api'; // Production
 
   static const String mobileApiPrefix = '/mobile';
 
@@ -25,4 +25,5 @@ class AppConfig {
   static const String notificationsEndpoint = '/mobile/notifications';
   static const String notificationUnreadCountEndpoint =
       '/mobile/notifications/unread-count';
+  static const String informasiEndpoint = '/mobile/informasi';
 }

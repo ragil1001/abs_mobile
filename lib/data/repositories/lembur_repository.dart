@@ -81,10 +81,13 @@ class LemburRepository {
     }
   }
 
-  /// Ajukan lembur
+  /// ✅ UPDATED: Ajukan lembur dengan support hari libur
   Future<PengajuanLembur> ajukanLembur({
     required DateTime tanggal,
     required File fileSkl,
+    String? jamMulai, // ✅ NEW: Wajib jika hari libur
+    String? jamSelesai, // ✅ NEW: Wajib jika hari libur
+    String? keterangan, // ✅ NEW: Opsional
   }) async {
     try {
       final token = await _storageService.getToken();
@@ -107,6 +110,20 @@ class LemburRepository {
 
       // Add fields
       request.fields['tanggal'] = tanggal.toIso8601String().split('T')[0];
+
+      // ✅ NEW: Tambahkan jam_mulai dan jam_selesai jika ada
+      if (jamMulai != null && jamMulai.isNotEmpty) {
+        request.fields['jam_mulai'] = jamMulai;
+      }
+
+      if (jamSelesai != null && jamSelesai.isNotEmpty) {
+        request.fields['jam_selesai'] = jamSelesai;
+      }
+
+      // ✅ NEW: Tambahkan keterangan jika ada
+      if (keterangan != null && keterangan.isNotEmpty) {
+        request.fields['keterangan_karyawan'] = keterangan;
+      }
 
       // Add SKL file (WAJIB)
       final fileStream = http.ByteStream(fileSkl.openRead());

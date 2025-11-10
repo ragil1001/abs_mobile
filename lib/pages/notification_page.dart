@@ -105,6 +105,25 @@ class _NotificationPageState extends State<NotificationPage> {
         }
         break;
 
+      case 'informasi_baru':
+      case 'new_informasi':
+      case 'informasi_created':
+        final informasiKaryawanId = int.tryParse(
+          data['informasi_karyawan_id']?.toString() ?? '',
+        );
+        debugPrint(
+          '🎯 [INFORMASI] Navigating to detail informasi: $informasiKaryawanId',
+        );
+
+        if (informasiKaryawanId != null) {
+          Navigator.of(
+            context,
+          ).pushNamed('/detail-informasi', arguments: informasiKaryawanId);
+        } else {
+          Navigator.of(context).pushNamed('/informasi');
+        }
+        break;
+
       case 'tukar_shift_approved':
       case 'tukar_shift_rejected':
         // Navigate ke detail tukar shift (jika sudah ada page-nya)

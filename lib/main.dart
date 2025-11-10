@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';
+import '../data/services/fake_gps_detector_service.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/izin_provider.dart';
@@ -11,6 +14,7 @@ import 'providers/jadwal_provider.dart';
 import 'providers/tukar_shift_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/lembur_provider.dart';
+import 'providers/informasi_provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_routes.dart';
 import 'data/services/dio_service.dart';
@@ -30,23 +34,71 @@ import './pages/detail_izin_page.dart';
 import './pages/detail_lembur_page.dart';
 import './pages/notification_page.dart';
 import './pages/history_absensi_page.dart';
+import './pages/informasi_page.dart';
+import './pages/detail_informasi_page.dart';
 import './pages/tukar_shift/tukar_shift_detail_page.dart';
 import './components/customNavbar.dart';
 
-// Global navigator key untuk navigasi dari background
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// ✅ Global logout handler untuk smooth transition
+class LogoutHandler {
+  static bool _isLoggingOut = false;
+
+  static Future<void> performLogout(BuildContext context) async {
+    if (_isLoggingOut) return;
+    _isLoggingOut = true;
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final notifProvider = context.read<NotificationProvider>();
+
+      // Clear UI state first (instant)
+      notifProvider.clear();
+
+      // Navigate immediately (smooth)
+      if (context.mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+
+      // Logout in background (non-blocking)
+      authProvider.logout().catchError((e) {
+        debugPrint('⚠️ Background logout error: $e');
+      });
+    } finally {
+      _isLoggingOut = false;
+    }
+  }
+}
+
+// ✅ Custom PageTransitionsBuilder dengan fade singkat untuk smooth experience
+class OptimizedFadePageTransitionsBuilder extends PageTransitionsBuilder {
+  const OptimizedFadePageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return FadeTransition(
+      opacity: CurveTween(curve: Curves.easeOut).animate(animation),
+      child: child,
+    );
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
 
-  // Initialize DIO Service
   await DioService().initialize();
-
-  // ✅ AUTO CLEANUP CACHE (7 days)
   await CacheManagerService.autoCleanup();
 
-  // Initialize Firebase
   try {
     await Firebase.initializeApp();
     await FirebaseMessagingService.initialize(navigatorKey: navigatorKey);
@@ -54,7 +106,16 @@ Future<void> main() async {
     debugPrint('Error initializing Firebase: $e');
   }
 
-  runApp(const MyApp());
+  try {
+    await FakeGpsDetectorService().prewarmCache();
+    debugPrint('✅ FakeGpsDetector cache prewarmed at app start');
+  } catch (e) {
+    debugPrint('⚠️ Failed to prewarm FakeGpsDetector cache: $e');
+  }
+
+  runApp(
+    DevicePreview(enabled: !kReleaseMode, builder: (context) => const MyApp()),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -71,8 +132,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TukarShiftProvider()),
         ChangeNotifierProvider(create: (_) => LemburProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => InformasiProvider()),
       ],
       child: MaterialApp(
+        locale: DevicePreview.locale(context),
+        builder: DevicePreview.appBuilder,
         navigatorKey: navigatorKey,
         title: 'PT Qiprah Multi Service',
         debugShowCheckedModeBanner: false,
@@ -82,10 +146,15 @@ class MyApp extends StatelessWidget {
           fontFamily: 'Roboto',
           pageTransitionsTheme: const PageTransitionsTheme(
             builders: {
-              TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.android: OptimizedFadePageTransitionsBuilder(),
+              TargetPlatform.iOS: OptimizedFadePageTransitionsBuilder(),
+              TargetPlatform.fuchsia: OptimizedFadePageTransitionsBuilder(),
+              TargetPlatform.linux: OptimizedFadePageTransitionsBuilder(),
+              TargetPlatform.macOS: OptimizedFadePageTransitionsBuilder(),
+              TargetPlatform.windows: OptimizedFadePageTransitionsBuilder(),
             },
           ),
+          visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
         routes: {
           AppRoutes.login: (context) => const auth.LoginPage(),
@@ -96,13 +165,15 @@ class MyApp extends StatelessWidget {
           AppRoutes.jadwal: (context) => const JadwalPage(),
           AppRoutes.notifications: (context) => const NotificationPage(),
           AppRoutes.historyAbsensi: (context) => const HistoryAbsensiPage(),
+          AppRoutes.informasi: (context) => const InformasiPage(),
         },
         onGenerateRoute: (settings) {
           if (settings.name == AppRoutes.detailIzin) {
             final izinId = settings.arguments as int?;
             if (izinId != null) {
-              return MaterialPageRoute(
-                builder: (context) => DetailIzinPage(izinId: izinId),
+              return _createOptimizedRoute(
+                DetailIzinPage(izinId: izinId),
+                settings,
               );
             }
           }
@@ -110,8 +181,9 @@ class MyApp extends StatelessWidget {
           if (settings.name == AppRoutes.detailLembur) {
             final lemburId = settings.arguments as int?;
             if (lemburId != null) {
-              return MaterialPageRoute(
-                builder: (context) => DetailLemburPage(lemburId: lemburId),
+              return _createOptimizedRoute(
+                DetailLemburPage(lemburId: lemburId),
+                settings,
               );
             }
           }
@@ -119,18 +191,42 @@ class MyApp extends StatelessWidget {
           if (settings.name == AppRoutes.detailTukarShift) {
             final tukarShiftId = settings.arguments as int?;
             if (tukarShiftId != null) {
-              // Load detail dan tampilkan dalam wrapper yang simple
-              return MaterialPageRoute(
-                builder: (context) =>
-                    _TukarShiftDetailLoader(tukarShiftId: tukarShiftId),
+              return _createOptimizedRoute(
+                _TukarShiftDetailLoader(tukarShiftId: tukarShiftId),
+                settings,
               );
             }
           }
+
+          if (settings.name == AppRoutes.detailInformasi) {
+            final informasiKaryawanId = settings.arguments as int?;
+            if (informasiKaryawanId != null) {
+              return _createOptimizedRoute(
+                DetailInformasiPage(informasiKaryawanId: informasiKaryawanId),
+                settings,
+              );
+            }
+          }
+
           return null;
         },
-
         home: const SplashScreen(),
       ),
+    );
+  }
+
+  Route _createOptimizedRoute(Widget page, RouteSettings settings) {
+    return PageRouteBuilder(
+      settings: settings,
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionDuration: const Duration(milliseconds: 150),
+      reverseTransitionDuration: const Duration(milliseconds: 150),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: CurveTween(curve: Curves.easeOut).animate(animation),
+          child: child,
+        );
+      },
     );
   }
 }
@@ -147,7 +243,6 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _rotateAnimation;
 
   @override
   void initState() {
@@ -155,27 +250,20 @@ class _SplashScreenState extends State<SplashScreen>
 
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1200),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
       ),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
-      ),
-    );
-
-    _rotateAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.2, 0.8, curve: Curves.easeInOut),
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
       ),
     );
 
@@ -184,7 +272,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigateAfterDelay() async {
-    await Future.delayed(const Duration(milliseconds: 2500));
+    await Future.delayed(const Duration(milliseconds: 1800));
 
     if (!mounted) return;
 
@@ -195,8 +283,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    // Fade out animation
-    await _animationController.reverse();
+    await _animationController.reverse(from: 1.0);
 
     if (!mounted) return;
 
@@ -208,8 +295,7 @@ class _SplashScreenState extends State<SplashScreen>
       debugPrint('✅ User authenticated - navigating to home');
       Navigator.pushReplacementNamed(context, AppRoutes.home);
 
-      // Mark app as ready and process pending notification
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 200), () {
         FirebaseMessagingService.markAppReady();
       });
     } else {
@@ -245,120 +331,77 @@ class _SplashScreenState extends State<SplashScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  AnimatedBuilder(
-                    animation: _rotateAnimation,
-                    builder: (context, child) {
-                      return Transform.rotate(
-                        angle: _rotateAnimation.value * 0.5,
-                        child: Container(
-                          width: 140,
-                          height: 140,
-                          decoration: BoxDecoration(
-                            color: AppColors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.primary,
-                              width: 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.3),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          padding: EdgeInsets.only(top: screenWidth * 0.03),
-                          child: ClipOval(
-                            child: Image.asset(
-                              'assets/logo.png',
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.business_rounded,
-                                  size: 70,
-                                  color: AppColors.primary,
-                                );
-                              },
-                            ),
-                          ),
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.primary, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.2),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
                         ),
-                      );
-                    },
+                      ],
+                    ),
+                    padding: EdgeInsets.only(top: screenWidth * 0.03),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/logo.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.business_rounded,
+                            size: 60,
+                            color: AppColors.primary,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const Text(
+                    'PT Qiprah Multi Service',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: const Text(
+                      'Sistem Presensi Karyawan',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 0.3,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 40),
-                  SlideTransition(
-                    position:
-                        Tween<Offset>(
-                          begin: const Offset(0, 0.3),
-                          end: Offset.zero,
-                        ).animate(
-                          CurvedAnimation(
-                            parent: _animationController,
-                            curve: const Interval(
-                              0.3,
-                              0.8,
-                              curve: Curves.easeOut,
-                            ),
-                          ),
-                        ),
-                    child: const Text(
-                      'PT Qiprah Multi Service',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FadeTransition(
-                    opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
-                      CurvedAnimation(
-                        parent: _animationController,
-                        curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
-                      ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: AppColors.primary.withOpacity(0.3),
-                        ),
-                      ),
-                      child: const Text(
-                        'Sistem Presensi Karyawan',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.textSecondary,
-                          letterSpacing: 0.3,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 50),
-                  FadeTransition(
-                    opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
-                      CurvedAnimation(
-                        parent: _animationController,
-                        curve: const Interval(0.6, 1.0, curve: Curves.easeIn),
-                      ),
-                    ),
-                    child: SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary.withOpacity(0.8),
-                        ),
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primary.withOpacity(0.8),
                       ),
                     ),
                   ),
@@ -372,6 +415,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
+// ✅ SMOOTH NAVIGATION: IndexedStack + Fade Transition
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
 
@@ -380,18 +424,31 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp>
-    with RouteAware, WidgetsBindingObserver {
+    with RouteAware, WidgetsBindingObserver, TickerProviderStateMixin {
   int _currentIndex = 0;
-  final PageController _pageController = PageController();
+  int _previousIndex = 0;
 
-  // ✅ NEW: Track loading states untuk instant shimmer
   bool _isLoadingBeranda = false;
   bool _isLoadingRiwayat = false;
+
+  // ✅ Animation controller untuk smooth fade
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // ✅ Setup fade animation
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200), // Smooth & fast
+    );
+
+    _fadeAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FirebaseMessagingService.markAppReady();
@@ -430,22 +487,21 @@ class _MainAppState extends State<MainApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pageController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
-  // ✅ UPDATED: Refresh dengan instant shimmer state
   Future<void> _refreshCurrentPage() async {
     if (!mounted) return;
 
     if (_currentIndex == 0) {
-      // Set loading state IMMEDIATELY untuk instant shimmer
       setState(() => _isLoadingBeranda = true);
 
       try {
         await Future.wait([
           context.read<PresensiProvider>().loadPresensiData(),
           context.read<NotificationProvider>().loadUnreadCount(),
+          context.read<InformasiProvider>().loadUnreadCount(),
         ]);
       } finally {
         if (mounted) {
@@ -459,7 +515,6 @@ class _MainAppState extends State<MainApp>
         final presensiProvider = context.read<PresensiProvider>();
         await presensiProvider.loadPresensiData();
 
-        // Load statistik untuk data absensi page
         final presensiData = presensiProvider.presensiData;
         if (presensiData?.projectInfo != null) {
           final currentMonth = DateFormat('yyyy-MM').format(DateTime.now());
@@ -473,41 +528,120 @@ class _MainAppState extends State<MainApp>
     }
   }
 
-  // ✅ UPDATED: Tab change dengan instant shimmer
+  // ✅ INSTANT SHIMMER + REFRESH DATA
   void _onTabTapped(int index) {
     if (index == _currentIndex) return;
 
-    setState(() {
-      _currentIndex = index;
+    // ✅ Langsung set loading state + ganti tab + trigger refresh
+    if (index == 0) {
+      setState(() {
+        _previousIndex = _currentIndex;
+        _currentIndex = index;
+        _isLoadingBeranda = true; // Langsung shimmer
+      });
+
+      // ✅ Langsung refresh data (tidak tunggu animasi)
+      _refreshBerandaData();
+    } else if (index == 1) {
+      setState(() {
+        _previousIndex = _currentIndex;
+        _currentIndex = index;
+        _isLoadingRiwayat = true; // Langsung shimmer
+      });
+
+      // ✅ Langsung refresh data (tidak tunggu animasi)
+      _refreshRiwayatData();
+    }
+
+    // ✅ Animasi berjalan PARALLEL dengan data loading
+    _fadeController.reverse().then((_) {
+      if (mounted) {
+        _fadeController.forward();
+      }
     });
+  }
 
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+  // ✅ Separated refresh methods untuk immediate execution
+  Future<void> _refreshBerandaData() async {
+    if (!mounted) return;
 
-    // ✅ ALWAYS refresh on tab change dengan instant shimmer
-    _refreshCurrentPage();
+    try {
+      // ✅ FORCE REFRESH: Gunakan refreshPresensiData untuk data terbaru
+      await Future.wait([
+        context.read<PresensiProvider>().refreshPresensiData(),
+        context.read<NotificationProvider>().loadUnreadCount(),
+        context.read<InformasiProvider>().loadUnreadCount(),
+      ]);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingBeranda = false);
+      }
+    }
+  }
+
+  Future<void> _refreshRiwayatData() async {
+    if (!mounted) return;
+
+    try {
+      final presensiProvider = context.read<PresensiProvider>();
+
+      // ✅ FORCE REFRESH: Refresh presensi data dulu
+      await presensiProvider.refreshPresensiData();
+
+      final presensiData = presensiProvider.presensiData;
+      if (presensiData?.projectInfo != null) {
+        // ✅ CRITICAL: Calculate CURRENT PERIOD based on project start
+        final projectStart = DateTime.parse(
+          presensiData!.projectInfo!.tanggalMulai,
+        );
+        final today = DateTime.now();
+
+        // Calculate how many complete months have passed since project start
+        int monthsDiff =
+            (today.year - projectStart.year) * 12 +
+            (today.month - projectStart.month);
+
+        // If today's day is before project start day, we're still in previous period
+        if (today.day < projectStart.day) {
+          monthsDiff--;
+        }
+
+        // Current period starts on project start day of the current calculated month
+        final periodStart = DateTime(
+          projectStart.year,
+          projectStart.month + monthsDiff,
+          projectStart.day,
+        );
+
+        // Format as yyyy-MM (for API compatibility)
+        final currentPeriod = DateFormat('yyyy-MM').format(periodStart);
+
+        debugPrint(
+          '🔄 Refresh Riwayat - Current Period: $currentPeriod (from ${projectStart.day} ${DateFormat('MMM').format(periodStart)} to ${projectStart.day - 1} ${DateFormat('MMM').format(periodStart.add(Duration(days: 30)))} )',
+        );
+
+        // ✅ Refresh statistik dengan periode yang benar
+        await presensiProvider.loadStatistikPeriode(currentPeriod);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingRiwayat = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          // ✅ Pass loading state ke HomePage
-          HomePage(isForceLoading: _isLoadingBeranda),
-          // ✅ Pass loading state ke DataAbsensiPage
-          DataAbsensiPage(isForceLoading: _isLoadingRiwayat),
-        ],
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [
+            HomePage(isForceLoading: _isLoadingBeranda),
+            DataAbsensiPage(isForceLoading: _isLoadingRiwayat),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
@@ -521,7 +655,6 @@ class _MainAppState extends State<MainApp>
   }
 }
 
-// Tambahkan di akhir file main.dart, setelah class _MainAppState
 class _TukarShiftDetailLoader extends StatefulWidget {
   final int tukarShiftId;
 
@@ -539,7 +672,6 @@ class _TukarShiftDetailLoaderState extends State<_TukarShiftDetailLoader> {
   @override
   void initState() {
     super.initState();
-    // ✅ Panggil setelah frame pertama selesai build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAndNavigate();
     });
@@ -548,14 +680,12 @@ class _TukarShiftDetailLoaderState extends State<_TukarShiftDetailLoader> {
   Future<void> _loadAndNavigate() async {
     final provider = Provider.of<TukarShiftProvider>(context, listen: false);
 
-    // Load requests if empty
     if (provider.requests.isEmpty) {
       await provider.loadTukarShiftRequests();
     }
 
     if (!mounted) return;
 
-    // Find the request
     TukarShiftRequest? request;
     try {
       request = provider.requests.firstWhere(
@@ -568,8 +698,17 @@ class _TukarShiftDetailLoaderState extends State<_TukarShiftDetailLoader> {
     if (request != null) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => TukarShiftDetailPage(request: request!),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              TukarShiftDetailPage(request: request!),
+          transitionDuration: const Duration(milliseconds: 150),
+          reverseTransitionDuration: const Duration(milliseconds: 150),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: CurveTween(curve: Curves.easeOut).animate(animation),
+              child: child,
+            );
+          },
         ),
       );
     } else {

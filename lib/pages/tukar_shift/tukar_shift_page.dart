@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/tukar_shift_provider.dart';
 import '../../components/custom_snackbar.dart';
+import '../../components/shimmer_loading.dart';
 import 'tukar_shift_request_page.dart';
 import 'tukar_shift_detail_page.dart';
 
@@ -367,6 +368,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     }
   }
 
+  // Ubah method _showRejectDialog
   void _showRejectDialog(int requestId) {
     final TextEditingController alasanController = TextEditingController();
     final screenWidth = MediaQuery.of(context).size.width;
@@ -375,7 +377,8 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
+        // Gunakan dialogContext untuk dialog
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -410,19 +413,24 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: Text("Batal", style: TextStyle(fontSize: bodyFontSize)),
             ),
             ElevatedButton(
               onPressed: () async {
                 if (alasanController.text.trim().isEmpty) {
+                  // Gunakan dialogContext untuk snackbar saat validasi
                   CustomSnackbar.showWarning(
-                    context,
+                    dialogContext,
                     'Alasan penolakan wajib diisi',
                   );
                   return;
                 }
-                Navigator.pop(context);
+
+                // Tutup dialog terlebih dahulu
+                Navigator.pop(dialogContext);
+
+                // Gunakan context dari widget (bukan dialogContext) untuk operasi setelah dialog ditutup
                 final provider = Provider.of<TukarShiftProvider>(
                   context,
                   listen: false,
@@ -432,6 +440,8 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                   action: 'tolak',
                   alasanPenolakan: alasanController.text.trim(),
                 );
+
+                // Gunakan context dari widget untuk snackbar setelah dialog ditutup
                 if (mounted) {
                   if (success) {
                     CustomSnackbar.showSuccess(
@@ -464,6 +474,7 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
     );
   }
 
+  // Ubah juga method _showConfirmDialog untuk konsistensi
   void _showConfirmDialog({
     required String title,
     required String message,
@@ -477,7 +488,8 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
+        // Gunakan dialogContext
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -486,13 +498,13 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           content: Text(message, style: TextStyle(fontSize: bodyFontSize)),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: Text("Batal", style: TextStyle(fontSize: bodyFontSize)),
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
-                onConfirm();
+                Navigator.pop(dialogContext); // Tutup dialog dulu
+                onConfirm(); // Kemudian jalankan callback
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: isDestructive
@@ -511,6 +523,103 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildShimmerLayout(double screenWidth, double padding) {
+    return ShimmerLoading(
+      child: ListView.builder(
+        padding: EdgeInsets.symmetric(horizontal: padding),
+        itemCount: 5,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: EdgeInsets.only(bottom: screenWidth * 0.03),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(screenWidth * 0.03),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      ShimmerBox(
+                        width: screenWidth * 0.25,
+                        height: 20,
+                        borderRadius: 6,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ShimmerBox(
+                          width: double.infinity,
+                          height: 16,
+                          borderRadius: 4,
+                        ),
+                      ),
+                      ShimmerBox(width: 24, height: 24, borderRadius: 8),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(screenWidth * 0.03),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShimmerBox(
+                              width: screenWidth * 0.2,
+                              height: 12,
+                              borderRadius: 4,
+                            ),
+                            const SizedBox(height: 8),
+                            ShimmerBox(
+                              width: double.infinity,
+                              height: 60,
+                              borderRadius: 10,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ShimmerBox(width: 32, height: 32, borderRadius: 16),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShimmerBox(
+                              width: screenWidth * 0.2,
+                              height: 12,
+                              borderRadius: 4,
+                            ),
+                            const SizedBox(height: 8),
+                            ShimmerBox(
+                              width: double.infinity,
+                              height: 60,
+                              borderRadius: 10,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -538,15 +647,57 @@ class _TukarShiftPageState extends State<TukarShiftPage> {
                     padding,
                     titleFontSize,
                   ),
-                  const Expanded(
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
+                  Container(
+                    color: Colors.white,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.03,
+                        vertical: screenHeight * 0.01,
+                      ),
+                      child: Row(
+                        children: [
+                          _buildTab(
+                            "Semua",
+                            "all",
+                            0,
+                            screenWidth,
+                            smallFontSize,
+                          ),
+                          _buildTab(
+                            "Pending",
+                            "pending",
+                            0,
+                            screenWidth,
+                            smallFontSize,
+                          ),
+                          _buildTab(
+                            "Disetujui",
+                            "disetujui",
+                            0,
+                            screenWidth,
+                            smallFontSize,
+                          ),
+                          _buildTab(
+                            "Ditolak",
+                            "ditolak",
+                            0,
+                            screenWidth,
+                            smallFontSize,
+                          ),
+                          _buildTab(
+                            "Dibatalkan",
+                            "dibatalkan",
+                            0,
+                            screenWidth,
+                            smallFontSize,
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                  const Divider(height: 1),
+                  Expanded(child: _buildShimmerLayout(screenWidth, padding)),
                 ],
               );
             }

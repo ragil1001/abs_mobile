@@ -3,20 +3,23 @@ class PresensiData {
   final PresensiHariIni? presensiHariIni;
   final JadwalHariIni? jadwalHariIni;
   final ProjectInfo? projectInfo;
-  final List<String> enabledIzinCategories; // ✅ NEW
-  final List<String> enabledSubKategoriIzin; // ✅ NEW
+  final PeriodInfo? periodInfo;
+  final MonthInfo? monthInfo;
+  final List<String> enabledIzinCategories;
+  final List<String> enabledSubKategoriIzin;
 
   PresensiData({
     required this.statistik,
     this.presensiHariIni,
     this.jadwalHariIni,
     this.projectInfo,
-    this.enabledIzinCategories = const [], // ✅ NEW
-    this.enabledSubKategoriIzin = const [], // ✅ NEW
+    this.periodInfo,
+    this.monthInfo,
+    this.enabledIzinCategories = const [],
+    this.enabledSubKategoriIzin = const [],
   });
 
   factory PresensiData.fromJson(Map<String, dynamic> json) {
-    // ✅ Parse enabled categories
     List<String> parseStringList(dynamic value) {
       if (value == null) return [];
       if (value is List) {
@@ -36,10 +39,41 @@ class PresensiData {
       projectInfo: json['project_info'] != null
           ? ProjectInfo.fromJson(json['project_info'])
           : null,
+      periodInfo: json['period_info'] != null
+          ? PeriodInfo.fromJson(json['period_info'])
+          : null,
+      monthInfo:
+          json['month_info'] !=
+              null // ✅ NEW
+          ? MonthInfo.fromJson(json['month_info'])
+          : null,
       enabledIzinCategories: parseStringList(json['enabled_izin_categories']),
       enabledSubKategoriIzin: parseStringList(
         json['enabled_sub_kategori_izin'],
       ),
+    );
+  }
+}
+
+class MonthInfo {
+  final String bulan;
+  final String bulanDisplay;
+  final String startDate;
+  final String endDate;
+
+  MonthInfo({
+    required this.bulan,
+    required this.bulanDisplay,
+    required this.startDate,
+    required this.endDate,
+  });
+
+  factory MonthInfo.fromJson(Map<String, dynamic> json) {
+    return MonthInfo(
+      bulan: json['bulan'] ?? '',
+      bulanDisplay: json['bulan_display'] ?? '',
+      startDate: json['start_date'] ?? '',
+      endDate: json['end_date'] ?? '',
     );
   }
 }
@@ -158,11 +192,15 @@ class PeriodInfo {
   final String startDate;
   final String endDate;
   final String bulan;
+  final String? bulanDisplay;
+  final bool? isCurrentPeriod; // ✅ NEW
 
   PeriodInfo({
     required this.startDate,
     required this.endDate,
     required this.bulan,
+    this.bulanDisplay,
+    this.isCurrentPeriod,
   });
 
   factory PeriodInfo.fromJson(Map<String, dynamic> json) {
@@ -170,6 +208,8 @@ class PeriodInfo {
       startDate: json['start_date'] ?? '',
       endDate: json['end_date'] ?? '',
       bulan: json['bulan'] ?? '',
+      bulanDisplay: json['bulan_display'],
+      isCurrentPeriod: json['is_current_period'], // ✅ NEW
     );
   }
 }

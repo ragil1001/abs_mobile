@@ -4,7 +4,12 @@ import '../../core/config/app_config.dart';
 class PengajuanLembur {
   final int id;
   final DateTime tanggal;
+  final String kodeHari; // ✅ NEW: K atau L
+  final String kodeHariText; // ✅ NEW: Hari Kerja atau Hari Libur
+  final String? jamMulai; // ✅ NEW: HH:mm (wajib jika kode_hari = L)
+  final String? jamSelesai; // ✅ NEW: HH:mm (wajib jika kode_hari = L)
   final String? fileSklUrl;
+  final String? keteranganKaryawan; // ✅ NEW: Keterangan opsional
   final String status;
   final String statusText;
   final String? catatanAdmin;
@@ -15,7 +20,12 @@ class PengajuanLembur {
   PengajuanLembur({
     required this.id,
     required this.tanggal,
+    required this.kodeHari,
+    required this.kodeHariText,
+    this.jamMulai,
+    this.jamSelesai,
     this.fileSklUrl,
+    this.keteranganKaryawan,
     required this.status,
     required this.statusText,
     this.catatanAdmin,
@@ -49,7 +59,15 @@ class PengajuanLembur {
       return PengajuanLembur(
         id: json['id'] as int,
         tanggal: DateTime.parse(json['tanggal'] as String),
+        kodeHari: getStringOrNull(json['kode_hari']) ?? 'K', // ✅ NEW
+        kodeHariText:
+            getStringOrNull(json['kode_hari_text']) ?? 'Hari Kerja', // ✅ NEW
+        jamMulai: getStringOrNull(json['jam_mulai']), // ✅ NEW
+        jamSelesai: getStringOrNull(json['jam_selesai']), // ✅ NEW
         fileSklUrl: getFullFileUrl(json['file_skl_url']),
+        keteranganKaryawan: getStringOrNull(
+          json['keterangan_karyawan'],
+        ), // ✅ NEW
         status: getStringOrNull(json['status']) ?? 'pending',
         statusText: getStringOrNull(json['status_text']) ?? 'Pending',
         catatanAdmin: getStringOrNull(json['catatan_admin']),
@@ -74,7 +92,10 @@ class PengajuanLembur {
   bool get canCancel => isPending;
   bool get canDelete => isDibatalkan || isDitolak;
 
-  // Get downloadable file URL with token
+  // ✅ NEW: Helper untuk hari libur
+  bool get isHariLibur => kodeHari == 'L';
+  bool get isHariKerja => kodeHari == 'K';
+
   String? getDownloadUrl(String? token) {
     if (fileSklUrl == null) return null;
 

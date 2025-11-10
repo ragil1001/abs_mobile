@@ -38,7 +38,7 @@ class LemburProvider with ChangeNotifier {
       _state = LemburState.loading;
       _errorMessage = null;
 
-      // ✅ CLEAR OLD DATA FIRST
+      // Clear old data first
       _lemburList.clear();
 
       notifyListeners();
@@ -81,10 +81,13 @@ class LemburProvider with ChangeNotifier {
     }
   }
 
-  /// Ajukan lembur
+  /// ✅ UPDATED: Ajukan lembur dengan parameter lengkap untuk hari libur
   Future<bool> ajukanLembur({
     required DateTime tanggal,
     required File fileSkl,
+    String? jamMulai, // ✅ NEW: Wajib jika hari libur
+    String? jamSelesai, // ✅ NEW: Wajib jika hari libur
+    String? keterangan, // ✅ NEW: Opsional
   }) async {
     try {
       _errorMessage = null;
@@ -92,6 +95,9 @@ class LemburProvider with ChangeNotifier {
       final newLembur = await _repository.ajukanLembur(
         tanggal: tanggal,
         fileSkl: fileSkl,
+        jamMulai: jamMulai,
+        jamSelesai: jamSelesai,
+        keterangan: keterangan,
       );
 
       // Reload data to ensure consistency

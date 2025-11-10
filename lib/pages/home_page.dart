@@ -6,6 +6,7 @@ import '../providers/presensi_provider.dart';
 import '../providers/notification_provider.dart';
 import '../components/custom_snackbar.dart';
 import '../components/shimmer_loading.dart';
+import '../data/models/presensi_model.dart';
 import 'profile_page.dart';
 import 'pengajuan_izin_page.dart';
 import 'pengajuan_lembur_page.dart';
@@ -14,8 +15,19 @@ import 'tukar_shift/tukar_shift_page.dart';
 import 'dart:async';
 import '../core/constants/app_routes.dart';
 
+// ✅ Custom PageRoute tanpa animasi
+class NoAnimationPageRoute<T> extends MaterialPageRoute<T> {
+  NoAnimationPageRoute({required super.builder});
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+}
+
 class HomePage extends StatefulWidget {
-  final bool isForceLoading; // ✅ NEW parameter
+  final bool isForceLoading;
 
   const HomePage({super.key, this.isForceLoading = false});
 
@@ -29,7 +41,7 @@ class _HomePageState extends State<HomePage>
   String _currentDate = '';
   final GlobalKey _whiteCardKey = GlobalKey();
   double _whiteCardHeight = 0;
-  bool _hasShownWelcome = false; // ✅ NEW: Track welcome message
+  bool _hasShownWelcome = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -53,16 +65,14 @@ class _HomePageState extends State<HomePage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
       _measureWhiteCard();
-      _showWelcomeMessage(); // ✅ NEW: Show welcome after login
+      _showWelcomeMessage();
     });
   }
 
-  // ✅ NEW: Show welcome message hanya sekali
   void _showWelcomeMessage() {
     if (!_hasShownWelcome && mounted) {
       _hasShownWelcome = true;
 
-      // Delay sedikit agar page sudah fully loaded
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
           final authProvider = context.read<AuthProvider>();
@@ -103,7 +113,6 @@ class _HomePageState extends State<HomePage>
     });
   }
 
-  // ✅ Refresh dengan shimmer effect
   Future<void> _refreshAllData() async {
     try {
       await Future.wait([
@@ -167,7 +176,6 @@ class _HomePageState extends State<HomePage>
                   _measureWhiteCard();
                 });
 
-                // ✅ Show shimmer jika loading ATAU force shimmer
                 final shouldShowShimmer =
                     widget.isForceLoading || presensiProvider.isLoading;
 
@@ -204,16 +212,15 @@ class _HomePageState extends State<HomePage>
                                   children: [
                                     GestureDetector(
                                       onTap: () async {
-                                        // ✅ Navigate ke profile
+                                        // ✅ Gunakan NoAnimationPageRoute
                                         await Navigator.push(
                                           context,
-                                          MaterialPageRoute(
+                                          NoAnimationPageRoute(
                                             builder: (context) =>
                                                 const ProfilePage(),
                                           ),
                                         );
 
-                                        // ✅ Langsung refresh saat kembali
                                         if (mounted) {
                                           await _refreshAllData();
                                         }
@@ -525,6 +532,25 @@ class _HomePageState extends State<HomePage>
                                       ],
                                     ),
                                     SizedBox(height: screenHeight * 0.02),
+
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.start,
+                                      children: [
+                                        _buildMenuCard(
+                                          assetPath: 'assets/informasi.webp',
+                                          label: 'Informasi',
+                                          screenWidth: screenWidth,
+                                          screenHeight: screenHeight,
+                                          onTap: () {
+                                            Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.informasi,
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),
@@ -539,6 +565,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  // Rest of the methods remain the same...
   Widget _buildErrorCard(
     double screenWidth,
     double screenHeight,
@@ -627,11 +654,12 @@ class _HomePageState extends State<HomePage>
     double screenHeight,
     double bodyFontSize,
     double smallFontSize,
-    presensiData,
+    PresensiData? presensiData,
   ) {
     final statistik = presensiData?.statistik;
     final jadwal = presensiData?.jadwalHariIni;
     final presensi = presensiData?.presensiHariIni;
+    final monthInfo = presensiData?.monthInfo; // ✅ CHANGED from periodInfo
     final isVerySmallScreen = screenWidth < 340;
     final topOffset = isVerySmallScreen
         ? screenHeight * 0.005
@@ -670,6 +698,18 @@ class _HomePageState extends State<HomePage>
                     color: Colors.white,
                   ),
                 ),
+                // ✅ Display month info instead of period
+                if (monthInfo != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Bulan ${monthInfo.bulanDisplay}',
+                    style: TextStyle(
+                      fontSize: (screenWidth * 0.03).clamp(10.0, 13.0),
+                      color: Colors.white.withOpacity(0.9),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
                 SizedBox(height: topOffset),
                 Container(
                   key: _whiteCardKey,
@@ -716,7 +756,7 @@ class _HomePageState extends State<HomePage>
                       ),
                       SizedBox(height: isVerySmallScreen ? 14 : 18),
 
-                      if (jadwal != null && jadwal.isLibur)
+                      if (jadwal != null && jadwal.isLibur && presensi == null)
                         Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: screenWidth * 0.04,
@@ -725,21 +765,21 @@ class _HomePageState extends State<HomePage>
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                Colors.green.shade50,
-                                Colors.green.shade100,
+                                Colors.purple.shade50,
+                                Colors.purple.shade100,
                               ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.green.shade300),
+                            border: Border.all(color: Colors.purple.shade300),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.weekend,
-                                color: Colors.green.shade700,
+                                Icons.beach_access,
+                                color: Colors.purple.shade700,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
@@ -748,13 +788,54 @@ class _HomePageState extends State<HomePage>
                                 style: TextStyle(
                                   fontSize: bodyFontSize,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.green.shade700,
+                                  color: Colors.purple.shade700,
                                 ),
                               ),
                             ],
                           ),
                         )
-                      else if (jadwal != null)
+                      else if (jadwal != null &&
+                          jadwal.isLibur &&
+                          presensi != null)
+                        Container(
+                          padding: EdgeInsets.all(isVerySmallScreen ? 10 : 12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.purple.shade50,
+                                Colors.purple.shade100,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.purple.shade300),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.beach_access,
+                                    color: Colors.purple.shade700,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Hari Libur - Presensi Khusus',
+                                    style: TextStyle(
+                                      fontSize: smallFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.purple.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
+                      else if (jadwal != null && !jadwal.isLibur)
                         Container(
                           padding: EdgeInsets.all(isVerySmallScreen ? 10 : 12),
                           decoration: BoxDecoration(
@@ -834,7 +915,7 @@ class _HomePageState extends State<HomePage>
 
                       SizedBox(height: isVerySmallScreen ? 12 : 16),
 
-                      if (jadwal != null && !jadwal.isLibur)
+                      if (jadwal != null && presensi != null)
                         Row(
                           children: [
                             Expanded(
@@ -853,7 +934,9 @@ class _HomePageState extends State<HomePage>
                                   children: [
                                     Icon(
                                       Icons.login,
-                                      color: Colors.green[600],
+                                      color: jadwal.isLibur
+                                          ? Colors.purple[600]
+                                          : Colors.green[600],
                                       size: (screenWidth * 0.073).clamp(
                                         20.0,
                                         28.0,
@@ -866,32 +949,21 @@ class _HomePageState extends State<HomePage>
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            presensi?.isAlpa == true
-                                                ? '-'
-                                                : (presensi?.statusMasuk ==
-                                                          'izin'
-                                                      ? 'Izin'
-                                                      : _formatTimeWithoutSeconds(
-                                                          presensi?.waktuMasuk,
-                                                        )),
+                                            _formatTimeWithoutSeconds(
+                                              presensi.waktuMasuk,
+                                            ),
                                             style: TextStyle(
                                               fontSize: (screenWidth * 0.042)
                                                   .clamp(14.0, 18.0),
                                               fontWeight: FontWeight.bold,
-                                              color: presensi?.isAlpa == true
-                                                  ? Colors.red
-                                                  : Colors.black87,
+                                              color: Colors.black87,
                                             ),
                                           ),
                                           Text(
-                                            presensi?.isAlpa == true
-                                                ? 'Alpa'
-                                                : 'Masuk',
+                                            'Masuk',
                                             style: TextStyle(
                                               fontSize: smallFontSize,
-                                              color: presensi?.isAlpa == true
-                                                  ? Colors.red
-                                                  : Colors.black54,
+                                              color: Colors.black54,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -919,7 +991,9 @@ class _HomePageState extends State<HomePage>
                                   children: [
                                     Icon(
                                       Icons.logout,
-                                      color: Colors.red[600],
+                                      color: jadwal.isLibur
+                                          ? Colors.purple[600]
+                                          : Colors.red[600],
                                       size: (screenWidth * 0.073).clamp(
                                         20.0,
                                         28.0,
@@ -932,32 +1006,21 @@ class _HomePageState extends State<HomePage>
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            presensi?.isAlpa == true
-                                                ? '-'
-                                                : (presensi?.statusMasuk ==
-                                                          'izin'
-                                                      ? 'Izin'
-                                                      : _formatTimeWithoutSeconds(
-                                                          presensi?.waktuPulang,
-                                                        )),
+                                            _formatTimeWithoutSeconds(
+                                              presensi.waktuPulang,
+                                            ),
                                             style: TextStyle(
                                               fontSize: (screenWidth * 0.042)
                                                   .clamp(14.0, 18.0),
                                               fontWeight: FontWeight.bold,
-                                              color: presensi?.isAlpa == true
-                                                  ? Colors.red
-                                                  : Colors.black87,
+                                              color: Colors.black87,
                                             ),
                                           ),
                                           Text(
-                                            presensi?.isAlpa == true
-                                                ? 'Alpa'
-                                                : 'Pulang',
+                                            'Pulang',
                                             style: TextStyle(
                                               fontSize: smallFontSize,
-                                              color: presensi?.isAlpa == true
-                                                  ? Colors.red
-                                                  : Colors.black54,
+                                              color: Colors.black54,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -1017,17 +1080,12 @@ class _HomePageState extends State<HomePage>
     required double screenHeight,
     VoidCallback? onTap,
   }) {
-    // Hitung lebar card agar muat 4 dalam 1 baris
-    // Formula: (screenWidth - (padding kiri + kanan) - (3 spacing)) / 4
-    final horizontalPadding = screenWidth * 0.05 * 2; // padding kiri & kanan
-    final totalSpacing = screenWidth * 0.04 * 3; // 3 spacing untuk 4 card
+    final horizontalPadding = screenWidth * 0.05 * 2;
+    final totalSpacing = screenWidth * 0.04 * 3;
     final cardWidth = (screenWidth - horizontalPadding - totalSpacing) / 4;
-
-    // Sesuaikan tinggi card (hanya untuk kotak, tidak termasuk label)
-    final cardHeight = cardWidth * 0.85; // Kotak persegi
-
+    final cardHeight = cardWidth * 0.85;
     final labelSize = (screenWidth * 0.028).clamp(9.0, 12.0);
-    final iconSize = cardWidth * 0.7; // Icon 55% dari lebar card
+    final iconSize = cardWidth * 0.7;
 
     return GestureDetector(
       onTap: onTap,
@@ -1036,7 +1094,6 @@ class _HomePageState extends State<HomePage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Kotak card dengan icon
             Container(
               height: cardHeight,
               width: cardWidth,
@@ -1068,8 +1125,7 @@ class _HomePageState extends State<HomePage>
                 ),
               ),
             ),
-            SizedBox(height: 6),
-            // Label di bawah kotak
+            const SizedBox(height: 6),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2.0),
               child: Text(
@@ -1102,7 +1158,6 @@ class _HomePageState extends State<HomePage>
     bool isVerySmallScreen,
     bool isSmallScreen,
   ) {
-    // Gunakan formula yang sama dengan _buildMenuCard untuk konsistensi
     final horizontalPadding = screenWidth * 0.05 * 2;
     final totalSpacing = screenWidth * 0.04 * 3;
     final cardWidth = (screenWidth - horizontalPadding - totalSpacing) / 4;
@@ -1200,9 +1255,30 @@ class _HomePageState extends State<HomePage>
                   borderRadius: 4,
                 ),
                 SizedBox(height: screenHeight * 0.017),
-                // 4 menu cards dalam 1 baris dengan spacing yang sama
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(
+                    4,
+                    (index) => Column(
+                      children: [
+                        ShimmerBox(
+                          width: cardWidth,
+                          height: cardHeight,
+                          borderRadius: 20,
+                        ),
+                        const SizedBox(height: 6),
+                        ShimmerBox(
+                          width: cardWidth * 0.8,
+                          height: (screenWidth * 0.028).clamp(9.0, 12.0),
+                          borderRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: screenHeight * 0.02),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     Column(
                       children: [
@@ -1211,52 +1287,7 @@ class _HomePageState extends State<HomePage>
                           height: cardHeight,
                           borderRadius: 20,
                         ),
-                        SizedBox(height: 6),
-                        ShimmerBox(
-                          width: cardWidth * 0.8,
-                          height: (screenWidth * 0.028).clamp(9.0, 12.0),
-                          borderRadius: 4,
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        ShimmerBox(
-                          width: cardWidth,
-                          height: cardHeight,
-                          borderRadius: 20,
-                        ),
-                        SizedBox(height: 6),
-                        ShimmerBox(
-                          width: cardWidth * 0.8,
-                          height: (screenWidth * 0.028).clamp(9.0, 12.0),
-                          borderRadius: 4,
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        ShimmerBox(
-                          width: cardWidth,
-                          height: cardHeight,
-                          borderRadius: 20,
-                        ),
-                        SizedBox(height: 6),
-                        ShimmerBox(
-                          width: cardWidth * 0.8,
-                          height: (screenWidth * 0.028).clamp(9.0, 12.0),
-                          borderRadius: 4,
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        ShimmerBox(
-                          width: cardWidth,
-                          height: cardHeight,
-                          borderRadius: 20,
-                        ),
-                        SizedBox(height: 6),
+                        const SizedBox(height: 6),
                         ShimmerBox(
                           width: cardWidth * 0.8,
                           height: (screenWidth * 0.028).clamp(9.0, 12.0),
@@ -1266,7 +1297,6 @@ class _HomePageState extends State<HomePage>
                     ),
                   ],
                 ),
-                SizedBox(height: screenHeight * 0.02),
               ],
             ),
           ),
@@ -1296,3 +1326,13 @@ String _formatTimeWithoutSeconds(String? timeString) {
     return timeString;
   }
 }
+
+// String _formatPeriodDate(String? dateStr) {
+//   if (dateStr == null || dateStr.isEmpty) return '-';
+//   try {
+//     final date = DateTime.parse(dateStr);
+//     return DateFormat('d MMM', 'id_ID').format(date);
+//   } catch (e) {
+//     return dateStr;
+//   }
+// }

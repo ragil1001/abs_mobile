@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/tukar_shift_provider.dart';
 import '../../data/models/tukar_shift_model.dart';
 import '../../components/custom_snackbar.dart';
+import '../../components/shimmer_loading.dart';
 import 'tukar_shift_review_page.dart';
 
 class TukarShiftSelectKaryawanPage extends StatefulWidget {
@@ -88,6 +89,74 @@ class _TukarShiftSelectKaryawanPageState
           shiftDiminta: _selectedKaryawan!.shift,
           karyawanTujuan: _selectedKaryawan!,
         ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerLayout(double screenWidth, double padding) {
+    return ShimmerLoading(
+      child: ListView.builder(
+        padding: EdgeInsets.symmetric(horizontal: padding),
+        itemCount: 5,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: EdgeInsets.only(bottom: screenWidth * 0.03),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.035),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerBox(
+                    width: (screenWidth * 0.135).clamp(48.0, 54.0),
+                    height: (screenWidth * 0.135).clamp(48.0, 54.0),
+                    borderRadius: 27,
+                  ),
+                  SizedBox(width: screenWidth * 0.035),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerBox(
+                          width: screenWidth * 0.4,
+                          height: 16,
+                          borderRadius: 4,
+                        ),
+                        SizedBox(height: screenWidth * 0.015),
+                        ShimmerBox(
+                          width: screenWidth * 0.3,
+                          height: 12,
+                          borderRadius: 4,
+                        ),
+                        SizedBox(height: screenWidth * 0.01),
+                        ShimmerBox(
+                          width: screenWidth * 0.35,
+                          height: 12,
+                          borderRadius: 4,
+                        ),
+                        SizedBox(height: screenWidth * 0.025),
+                        ShimmerBox(
+                          width: double.infinity,
+                          height: 60,
+                          borderRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: screenWidth * 0.025),
+                  ShimmerBox(
+                    width: (screenWidth * 0.07).clamp(24.0, 28.0),
+                    height: (screenWidth * 0.07).clamp(24.0, 28.0),
+                    borderRadius: 14,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -334,13 +403,7 @@ class _TukarShiftSelectKaryawanPageState
                   }
 
                   if (provider.isLoadingKaryawan) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      ),
-                    );
+                    return _buildShimmerLayout(screenWidth, padding);
                   }
 
                   if (provider.errorMessageKaryawan != null) {

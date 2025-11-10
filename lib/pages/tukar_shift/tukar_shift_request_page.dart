@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../providers/tukar_shift_provider.dart';
 import '../../data/models/tukar_shift_model.dart';
 import '../../components/custom_snackbar.dart';
+import '../../components/shimmer_loading.dart';
 import 'tukar_shift_select_karyawan_page.dart';
 
 class TukarShiftRequestPage extends StatefulWidget {
@@ -107,6 +108,66 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
     );
   }
 
+  Widget _buildShimmerLayout(double screenWidth, double padding) {
+    return ShimmerLoading(
+      child: ListView.builder(
+        padding: EdgeInsets.symmetric(horizontal: padding),
+        itemCount: 5,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: EdgeInsets.only(bottom: screenWidth * 0.03),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(screenWidth * 0.035),
+              child: Row(
+                children: [
+                  ShimmerBox(
+                    width: (screenWidth * 0.15).clamp(50.0, 60.0),
+                    height: (screenWidth * 0.15).clamp(50.0, 60.0),
+                    borderRadius: 12,
+                  ),
+                  SizedBox(width: screenWidth * 0.035),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerBox(
+                          width: screenWidth * 0.3,
+                          height: 16,
+                          borderRadius: 4,
+                        ),
+                        SizedBox(height: screenWidth * 0.02),
+                        ShimmerBox(
+                          width: screenWidth * 0.2,
+                          height: 14,
+                          borderRadius: 6,
+                        ),
+                        SizedBox(height: screenWidth * 0.02),
+                        ShimmerBox(
+                          width: screenWidth * 0.4,
+                          height: 12,
+                          borderRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+                  ShimmerBox(
+                    width: (screenWidth * 0.07).clamp(24.0, 28.0),
+                    height: (screenWidth * 0.07).clamp(24.0, 28.0),
+                    borderRadius: 14,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -205,13 +266,7 @@ class _TukarShiftRequestPageState extends State<TukarShiftRequestPage> {
             ),
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      ),
-                    )
+                  ? _buildShimmerLayout(screenWidth, padding)
                   : _errorMessage != null
                   ? Center(
                       child: Padding(

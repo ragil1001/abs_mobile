@@ -6,11 +6,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'package:image/image.dart' as img;
 import '../providers/presensi_provider.dart';
 import '../data/services/dio_service.dart';
 import '../core/config/app_config.dart';
 import 'dart:convert';
 import '../data/services/image_compression_service.dart';
+import '../components/custom_presensi_dialog.dart'; // ✅ NEW IMPORT
 
 class SelfiePage extends StatefulWidget {
   final String mode; // "masuk" atau "pulang"
@@ -89,7 +91,7 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
       _controller = CameraController(
         selectedCamera,
-        ResolutionPreset.high,
+        ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
@@ -133,11 +135,16 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
         setState(() {
           _isGettingLocation = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mendapatkan lokasi: ${e.toString()}'),
-            backgroundColor: Colors.orange,
-          ),
+
+        // ✅ Use custom dialog instead of SnackBar
+        CustomPresensiDialog.show(
+          context: context,
+          title: 'Gagal Mendapatkan Lokasi',
+          message: 'Tidak dapat mengambil lokasi GPS Anda saat ini.',
+          icon: Icons.location_off,
+          iconColor: Colors.orange,
+          additionalInfo: e.toString(),
+          confirmText: 'OK',
         );
       }
     }
@@ -145,29 +152,31 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
   Future<void> _takePicture() async {
     if (_controller == null || !_controller!.value.isInitialized) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kamera belum siap'),
-          backgroundColor: Colors.red,
-        ),
+      CustomPresensiDialog.show(
+        context: context,
+        title: 'Kamera Belum Siap',
+        message: 'Mohon tunggu hingga kamera siap digunakan.',
+        icon: Icons.camera_alt_outlined,
+        iconColor: Colors.orange,
+        confirmText: 'OK',
       );
       return;
     }
 
     if (_isSubmitting) return;
 
-    // Pastikan lokasi sudah didapat
     if (_currentPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Menunggu lokasi GPS...'),
-          backgroundColor: Colors.orange,
-        ),
+      CustomPresensiDialog.show(
+        context: context,
+        title: 'Menunggu Lokasi GPS',
+        message: 'Sedang mengambil lokasi GPS Anda. Mohon tunggu sebentar...',
+        icon: Icons.gps_fixed,
+        iconColor: Colors.blue,
+        confirmText: 'OK',
       );
+
       await _getCurrentLocation();
-      if (_currentPosition == null) {
-        return;
-      }
+      if (_currentPosition == null) return;
     }
 
     try {
@@ -176,53 +185,166 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       // Ambil foto
       final image = await _controller!.takePicture();
 
+      // 🪞 Jika kamera depan → buat hasilnya mirror (flip horizontal)
+      if (_controller!.description.lensDirection == CameraLensDirection.front) {
+        final originalBytes = await File(image.path).readAsBytes();
+        final decoded = img.decodeImage(originalBytes);
+        if (decoded != null) {
+          final mirrored = img.flipHorizontal(decoded);
+          await File(image.path).writeAsBytes(img.encodeJpg(mirrored));
+        }
+      }
+
       if (!mounted) return;
 
-      // Tampilkan preview dan konfirmasi
-      final confirmed = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return Dialog(
+      // ✅ Preview konfirmasi dengan custom dialog yang lebih modern
+      final confirmed = await _showPhotoPreview(image.path);
+
+      if (confirmed == true && mounted) {
+        await _submitPresensi(File(image.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomPresensiDialog.show(
+          context: context,
+          title: 'Gagal Mengambil Foto',
+          message: 'Terjadi kesalahan saat mengambil foto.',
+          icon: Icons.error_outline,
+          iconColor: Colors.red,
+          additionalInfo: e.toString(),
+          confirmText: 'OK',
+        );
+      }
+    }
+  }
+
+  // ✅ NEW: Custom photo preview dialog
+  Future<bool?> _showPhotoPreview(String imagePath) async {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: 400,
+              maxHeight: screenHeight * 0.8,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Header
                 Container(
-                  padding: const EdgeInsets.all(16),
-                  child: const Text(
-                    'Preview Foto',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  padding: EdgeInsets.all(screenWidth * 0.04),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.photo_camera,
+                        color: Colors.blue.shade700,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Preview Foto',
+                        style: TextStyle(
+                          fontSize: (screenWidth * 0.045).clamp(16.0, 18.0),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                AspectRatio(
-                  aspectRatio: 3 / 4,
-                  child: Image.file(File(image.path), fit: BoxFit.cover),
+
+                // Photo Preview
+                Flexible(
+                  child: Container(
+                    margin: EdgeInsets.all(screenWidth * 0.04),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: AspectRatio(
+                        aspectRatio: 3 / 4,
+                        child: Image.file(File(imagePath), fit: BoxFit.cover),
+                      ),
+                    ),
+                  ),
                 ),
+
+                // Info text
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+                  child: Text(
+                    'Pastikan wajah Anda terlihat jelas',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: (screenWidth * 0.035).clamp(12.0, 14.0),
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Buttons
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    screenWidth * 0.05,
+                    0,
+                    screenWidth * 0.05,
+                    screenWidth * 0.05,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: const BorderSide(color: Colors.red),
-                            foregroundColor: Colors.red,
+                        child: SizedBox(
+                          height: (screenHeight * 0.055).clamp(44.0, 56.0),
+                          child: OutlinedButton.icon(
+                            onPressed: () => Navigator.pop(context, false),
+                            icon: const Icon(Icons.refresh, size: 15),
+                            label: const Text('Ulangi'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(
+                                color: Colors.red,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
-                          child: const Text('Ulangi'),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: screenWidth * 0.03),
                       Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
+                        child: SizedBox(
+                          height: (screenHeight * 0.055).clamp(44.0, 56.0),
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(context, true),
+                            icon: const Icon(Icons.check, size: 15),
+                            label: const Text('Gunakan'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
-                          child: const Text('Gunakan'),
                         ),
                       ),
                     ],
@@ -230,23 +352,10 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
                 ),
               ],
             ),
-          );
-        },
-      );
-
-      if (confirmed == true && mounted) {
-        await _submitPresensi(File(image.path));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mengambil foto: ${e.toString()}'),
-            backgroundColor: Colors.red,
           ),
         );
-      }
-    }
+      },
+    );
   }
 
   Future<void> _submitPresensi(File imageFile) async {
@@ -265,12 +374,8 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       }
 
       // Compress foto sebelum upload
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Memproses foto...'),
-          duration: Duration(seconds: 1),
-        ),
-      );
+      // ✅ Show loading with custom dialog instead of SnackBar
+      _showLoadingDialog('Memproses foto...');
 
       compressedFile = await ImageCompressionService.compressPresensiPhoto(
         imageFile,
@@ -283,6 +388,11 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
         '📸 Original: ${(originalSize / 1024).toStringAsFixed(0)}KB → '
         'Compressed: ${(compressedSize / 1024).toStringAsFixed(0)}KB',
       );
+
+      if (mounted) Navigator.pop(context); // Close loading
+
+      // ✅ Show uploading dialog
+      _showLoadingDialog('Mengirim presensi...');
 
       final lat = _currentPosition?.latitude ?? widget.latitude;
       final lon = _currentPosition?.longitude ?? widget.longitude;
@@ -312,67 +422,14 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
 
       if (!mounted) return;
 
+      Navigator.pop(context); // Close loading
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (responseData['success'] == true) {
           HapticFeedback.mediumImpact();
 
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      color: Colors.green[600],
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    const Text('Berhasil'),
-                  ],
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      responseData['message'] ?? 'Presensi berhasil dicatat',
-                    ),
-                    const SizedBox(height: 12),
-                    if (responseData['data'] != null) ...[
-                      _buildInfoRow(
-                        'Status',
-                        responseData['data']['status_text'] ?? '',
-                      ),
-                      if (responseData['data']['keterangan'] != null)
-                        _buildInfoRow(
-                          'Keterangan',
-                          responseData['data']['keterangan'],
-                        ),
-                      _buildInfoRow(
-                        'Waktu',
-                        responseData['data']['waktu'] ?? '',
-                      ),
-                    ],
-                  ],
-                ),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _handleSuccessAndReturn();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('OK'),
-                  ),
-                ],
-              );
-            },
-          );
+          // ✅ Show success with custom dialog
+          await _showSuccessDialog(responseData);
         } else {
           throw ApiException(
             responseData['message'] ?? 'Gagal menyimpan presensi',
@@ -385,20 +442,25 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       if (mounted) {
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context); // Close any loading dialog
+        }
+
         setState(() {
           _isSubmitting = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e is ApiException
-                  ? e.message
-                  : 'Terjadi kesalahan: ${e.toString()}',
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
+        // ✅ Use custom dialog for error
+        CustomPresensiDialog.show(
+          context: context,
+          title: 'Gagal Menyimpan Presensi',
+          message: e is ApiException
+              ? e.message
+              : 'Terjadi kesalahan saat menyimpan presensi.',
+          icon: Icons.error_outline,
+          iconColor: Colors.red,
+          additionalInfo: e is! ApiException ? e.toString() : null,
+          confirmText: 'OK',
         );
       }
     } finally {
@@ -409,6 +471,181 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
         } catch (_) {}
       }
     }
+  }
+
+  // ✅ NEW: Show loading dialog
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: Center(
+          child: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ NEW: Show success dialog with custom design
+  Future<void> _showSuccessDialog(Map<String, dynamic> responseData) async {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        final data = responseData['data'];
+        final statusText = data?['status_text'] ?? '';
+        final keterangan = data?['keterangan'];
+        final waktu = data?['waktu'] ?? '';
+
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: screenWidth * 0.85,
+            constraints: BoxConstraints(
+              maxWidth: 400,
+              maxHeight: screenHeight * 0.7,
+            ),
+            padding: EdgeInsets.all(screenWidth * 0.05),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Success Icon
+                Container(
+                  width: (screenWidth * 0.15).clamp(50.0, 80.0),
+                  height: (screenWidth * 0.15).clamp(50.0, 80.0),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.green.withOpacity(0.3),
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.check_circle,
+                    size: (screenWidth * 0.15).clamp(50.0, 80.0) * 0.6,
+                    color: Colors.green,
+                  ),
+                ),
+
+                SizedBox(height: screenHeight * 0.02),
+
+                // Title
+                Text(
+                  'Presensi Berhasil!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: (screenWidth * 0.05).clamp(16.0, 20.0),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+
+                SizedBox(height: screenHeight * 0.015),
+
+                // Message
+                Text(
+                  responseData['message'] ?? 'Presensi berhasil dicatat',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: (screenWidth * 0.038).clamp(13.0, 16.0),
+                    color: Colors.black54,
+                    height: 1.4,
+                  ),
+                ),
+
+                SizedBox(height: screenHeight * 0.02),
+
+                // Info Container
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(screenWidth * 0.04),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.green.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      if (statusText.isNotEmpty)
+                        _buildInfoRow('Status', statusText),
+                      if (keterangan != null && keterangan.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _buildInfoRow('Keterangan', keterangan),
+                      ],
+                      if (waktu.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _buildInfoRow('Waktu', waktu),
+                      ],
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: screenHeight * 0.025),
+
+                // OK Button
+                SizedBox(
+                  width: double.infinity,
+                  height: (screenHeight * 0.055).clamp(44.0, 56.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _handleSuccessAndReturn();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'OK',
+                      style: TextStyle(
+                        fontSize: (screenWidth * 0.038).clamp(13.0, 16.0),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // Handle success dan trigger refresh
@@ -437,30 +674,34 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
   }
 
   Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.black54,
-              ),
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: (screenWidth * 0.25).clamp(70.0, 90.0),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: (screenWidth * 0.035).clamp(12.0, 14.0),
+              fontWeight: FontWeight.w600,
+              color: Colors.black54,
             ),
           ),
-          const Text(': '),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        const Text(': ', style: TextStyle(color: Colors.black54)),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: (screenWidth * 0.035).clamp(12.0, 14.0),
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -538,165 +779,128 @@ class _SelfiePageState extends State<SelfiePage> with WidgetsBindingObserver {
   }
 
   Widget _buildCameraView() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Camera preview - Full screen tanpa SafeArea
-        FutureBuilder<void>(
-          future: _initializeControllerFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              return CameraPreview(_controller!);
-            } else {
-              return const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              );
-            }
-          },
-        ),
+    if (_controller == null || !_controller!.value.isInitialized) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
 
-        // ✅ Top bar - SafeArea HANYA di atas
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            bottom: false, // Tidak ada padding bawah
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      widget.mode == 'masuk'
-                          ? 'Presensi Masuk'
-                          : 'Presensi Pulang',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
+    var cameraAspectRatio = _controller!.value.aspectRatio;
+
+    // Jika aspect ratio > 1 (landscape), inverse untuk portrait
+    if (cameraAspectRatio > 1) {
+      cameraAspectRatio = 1 / cameraAspectRatio;
+    }
+
+    return Stack(
+      children: [
+        // Camera view
+        Positioned.fill(
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: cameraAspectRatio,
+              child: CameraPreview(_controller!),
             ),
           ),
         ),
 
-        // ✅ Bottom controls - SafeArea HANYA di bawah
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            top: false, // Tidak ada padding atas
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Colors.black.withOpacity(0.8), Colors.transparent],
-                ),
-              ),
-              child: Column(
-                children: [
-                  // GPS status
-                  if (_isGettingLocation || _currentPosition == null)
+        // Overlay controls
+        SafeArea(
+          child: Column(
+            children: [
+              // Header dengan tombol back
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const Spacer(),
                     Container(
-                      margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.9),
+                        color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Mendapatkan lokasi GPS...',
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // Capture button
-                  GestureDetector(
-                    onTap: _isSubmitting ? null : _takePicture,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 4),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: _isSubmitting ? Colors.grey : Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: _isSubmitting
-                              ? const Padding(
-                                  padding: EdgeInsets.all(20),
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : null,
+                      child: Text(
+                        widget.mode == 'masuk'
+                            ? 'Presensi Masuk'
+                            : 'Presensi Pulang',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _isSubmitting
-                        ? 'Mengirim presensi...'
-                        : 'Ketuk untuk ambil foto',
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  ),
-                ],
+                    const Spacer(),
+                    const SizedBox(width: 48), // Balance the back button
+                  ],
+                ),
               ),
-            ),
+
+              const Spacer(),
+
+              // Capture button
+              Padding(
+                padding: const EdgeInsets.only(bottom: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: _isSubmitting ? null : _takePicture,
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 4),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _isSubmitting ? Colors.grey : Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: _isSubmitting
+                                ? const Padding(
+                                    padding: EdgeInsets.all(20),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _isSubmitting
+                          ? 'Mengirim presensi...'
+                          : 'Ketuk untuk ambil foto',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],

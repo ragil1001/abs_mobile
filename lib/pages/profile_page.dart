@@ -6,6 +6,7 @@ import '../providers/notification_provider.dart';
 import '../core/constants/app_colors.dart';
 import '../components/shimmer_loading.dart';
 import './auth/ganti_password_page.dart';
+import '../main.dart'; // Import untuk LogoutHandler
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -667,6 +668,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // ✅ OPTIMIZED: Logout dialog dengan smooth transition
   void _showLogoutDialog(
     BuildContext context,
     double screenWidth,
@@ -679,171 +681,105 @@ class _ProfilePageState extends State<ProfilePage> {
 
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          bool isLoading = false;
-
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: EdgeInsets.all(screenWidth * 0.06),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: iconSize,
+              height: iconSize,
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.logout,
+                color: AppColors.error,
+                size: iconSize * 0.5,
+              ),
             ),
-            contentPadding: EdgeInsets.all(screenWidth * 0.06),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
+            SizedBox(height: screenHeight * 0.02),
+            Text(
+              "Logout",
+              style: TextStyle(
+                fontSize: headerFontSize,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.01),
+            Text(
+              "Apakah Anda yakin ingin keluar?",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: subtitleFontSize,
+                color: Colors.black54,
+              ),
+            ),
+            SizedBox(height: screenHeight * 0.025),
+            Row(
               children: [
-                Container(
-                  width: iconSize,
-                  height: iconSize,
-                  decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.logout,
-                    color: AppColors.error,
-                    size: iconSize * 0.5,
-                  ),
-                ),
-                SizedBox(height: screenHeight * 0.02),
-                Text(
-                  "Logout",
-                  style: TextStyle(
-                    fontSize: headerFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                SizedBox(height: screenHeight * 0.01),
-                Text(
-                  "Apakah Anda yakin ingin keluar?",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: subtitleFontSize,
-                    color: Colors.black54,
-                  ),
-                ),
-                SizedBox(height: screenHeight * 0.025),
-
-                if (!isLoading)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: screenHeight * 0.015,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F5F5),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              "Batal",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: buttonTextFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ),
-                        ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(dialogContext),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        vertical: screenHeight * 0.015,
                       ),
-                      SizedBox(width: screenWidth * 0.03),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () async {
-                            setState(() {
-                              isLoading = true;
-                            });
-
-                            final authProvider = Provider.of<AuthProvider>(
-                              context,
-                              listen: false,
-                            );
-
-                            try {
-                              await authProvider.logout();
-
-                              if (context.mounted) {
-                                final notifProvider =
-                                    Provider.of<NotificationProvider>(
-                                      context,
-                                      listen: false,
-                                    );
-                                notifProvider.clear();
-                              }
-
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                              }
-
-                              if (context.mounted) {
-                                Navigator.of(context).pushNamedAndRemoveUntil(
-                                  '/login',
-                                  (route) => false,
-                                );
-                              }
-                            } catch (e) {
-                              setState(() {
-                                isLoading = false;
-                              });
-
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Logout berhasil (offline mode)',
-                                    ),
-                                    backgroundColor: AppColors.success,
-                                  ),
-                                );
-
-                                Navigator.pop(context);
-                                Navigator.of(context).pushNamedAndRemoveUntil(
-                                  '/login',
-                                  (route) => false,
-                                );
-                              }
-                            }
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: screenHeight * 0.015,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.error,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              "Logout",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: buttonTextFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                  ),
-                if (isLoading)
-                  const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
+                      child: Text(
+                        "Batal",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: buttonTextFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black54,
+                        ),
                       ),
                     ),
                   ),
+                ),
+                SizedBox(width: screenWidth * 0.03),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      // ✅ Close dialog immediately
+                      Navigator.pop(dialogContext);
+
+                      // ✅ Smooth logout via global handler
+                      LogoutHandler.performLogout(context);
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        vertical: screenHeight * 0.015,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        "Logout",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: buttonTextFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

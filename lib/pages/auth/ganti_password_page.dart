@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../components/custom_snackbar.dart';
 
 class GantiPasswordPage extends StatefulWidget {
   const GantiPasswordPage({super.key});
@@ -54,35 +55,26 @@ class _GantiPasswordPageState extends State<GantiPasswordPage> {
       if (!mounted) return;
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              "Password berhasil diubah. Silakan login kembali.",
-            ),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        // ✅ Gunakan CustomSnackbar untuk success
+        CustomSnackbar.showSuccess(
+          context,
+          "Password berhasil diubah. Silakan login kembali.",
         );
+
+        // Delay sebentar agar snackbar terlihat sebelum navigate
+        await Future.delayed(const Duration(milliseconds: 1500));
+
+        if (!mounted) return;
 
         // Navigate to login page
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/login', (route) => false);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authProvider.errorMessage ?? "Gagal mengubah password",
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        // ✅ Gunakan CustomSnackbar untuk error
+        CustomSnackbar.showError(
+          context,
+          authProvider.errorMessage ?? "Gagal mengubah password",
         );
       }
     }

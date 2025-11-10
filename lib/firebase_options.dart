@@ -70,7 +70,7 @@ class DefaultFirebaseOptions {
     databaseURL:
         'https://presensi-app-d9e2c-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'presensi-app-d9e2c.firebasestorage.app',
-    iosBundleId: 'com.example.abs',
+    iosBundleId: 'com.qms.presensi',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -81,7 +81,7 @@ class DefaultFirebaseOptions {
     databaseURL:
         'https://presensi-app-d9e2c-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'presensi-app-d9e2c.firebasestorage.app',
-    iosBundleId: 'com.example.abs',
+    iosBundleId: 'com.qms.presensi',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

@@ -162,23 +162,37 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
                         ],
                       ),
                     )
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _buildStatusBadge(),
-                        const SizedBox(height: 20),
-                        _buildInfoCard(),
-                        const SizedBox(height: 16),
-                        if (_lembur!.fileSklUrl != null) ...[
-                          _buildFileLampiran(),
+                  : RefreshIndicator(
+                      onRefresh: _loadDetail,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildStatusBadge(),
+                          const SizedBox(height: 20),
+                          _buildInfoCard(),
                           const SizedBox(height: 16),
+                          if (_lembur!.jamMulai != null &&
+                              _lembur!.jamSelesai != null) ...[
+                            _buildJamKerjaCard(),
+                            const SizedBox(height: 16),
+                          ],
+                          if (_lembur!.fileSklUrl != null) ...[
+                            _buildFileLampiran(),
+                            const SizedBox(height: 16),
+                          ],
+                          // ✅ NEW: Keterangan Karyawan
+                          if (_lembur!.keteranganKaryawan != null &&
+                              _lembur!.keteranganKaryawan!.isNotEmpty) ...[
+                            _buildKeteranganCard(),
+                            const SizedBox(height: 16),
+                          ],
+                          if (_lembur!.catatanAdmin != null) ...[
+                            _buildAdminResponse(),
+                            const SizedBox(height: 16),
+                          ],
+                          _buildTimeline(),
                         ],
-                        if (_lembur!.catatanAdmin != null) ...[
-                          _buildAdminResponse(),
-                          const SizedBox(height: 16),
-                        ],
-                        _buildTimeline(),
-                      ],
+                      ),
                     ),
             ),
           ],
@@ -309,13 +323,64 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoRow(
-              'Jenis Pengajuan',
-              'Lembur',
-              Icons.access_time,
-              isHighlight: true,
-              customColor: Colors.deepPurple,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: _buildInfoRow(
+                    'Jenis Pengajuan',
+                    'Lembur',
+                    Icons.access_time,
+                    isHighlight: true,
+                    customColor: Colors.deepPurple,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // ✅ NEW: Badge Kode Hari
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _lembur!.isHariLibur
+                        ? Colors.orange.withOpacity(0.2)
+                        : Colors.blue.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _lembur!.isHariLibur ? Colors.orange : Colors.blue,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _lembur!.isHariLibur
+                            ? Icons.weekend
+                            : Icons.work_outline,
+                        size: 14,
+                        color: _lembur!.isHariLibur
+                            ? Colors.orange
+                            : Colors.blue,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _lembur!.kodeHariText,
+                        style: TextStyle(
+                          color: _lembur!.isHariLibur
+                              ? Colors.orange
+                              : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+
             const Divider(height: 24),
             _buildInfoRow(
               'Tanggal Lembur',
@@ -324,6 +389,243 @@ class _DetailLemburPageState extends State<DetailLemburPage> {
                 'id_ID',
               ).format(_lembur!.tanggal),
               Icons.calendar_today,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ UPDATED: Tampilkan jam kerja untuk SEMUA pengajuan (hari kerja & libur)
+  Widget _buildJamKerjaCard() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _lembur!.isHariLibur
+                        ? Colors.orange.withOpacity(0.1)
+                        : AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.schedule,
+                    color: _lembur!.isHariLibur
+                        ? Colors.orange
+                        : AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Jam Kerja Lembur',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _lembur!.isHariLibur
+                          ? Colors.orange.withOpacity(0.05)
+                          : AppColors.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _lembur!.isHariLibur
+                            ? Colors.orange.withOpacity(0.3)
+                            : AppColors.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.access_time,
+                              size: 16,
+                              color: _lembur!.isHariLibur
+                                  ? Colors.orange
+                                  : AppColors.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Jam Mulai',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _lembur!.jamMulai ?? '-',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _lembur!.isHariLibur
+                          ? Colors.orange.withOpacity(0.05)
+                          : AppColors.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _lembur!.isHariLibur
+                            ? Colors.orange.withOpacity(0.3)
+                            : AppColors.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.access_time_filled,
+                              size: 16,
+                              color: _lembur!.isHariLibur
+                                  ? Colors.orange
+                                  : AppColors.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Jam Selesai',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _lembur!.jamSelesai ?? '-',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _lembur!.isHariLibur
+                    ? Colors.orange.withOpacity(0.05)
+                    : AppColors.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _lembur!.isHariLibur
+                      ? Colors.orange.withOpacity(0.3)
+                      : AppColors.primary.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: _lembur!.isHariLibur
+                        ? Colors.orange
+                        : AppColors.primary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _lembur!.isHariLibur
+                          ? 'Lembur di hari libur dengan jam kerja yang ditentukan'
+                          : 'Lembur di hari kerja dengan jam kerja yang ditentukan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _lembur!.isHariLibur
+                            ? Colors.orange.shade800
+                            : AppColors.primary.withOpacity(0.9),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ NEW: Card untuk Keterangan Karyawan
+  Widget _buildKeteranganCard() {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.notes,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Keterangan',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(
+              _lembur!.keteranganKaryawan!,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+                height: 1.5,
+              ),
             ),
           ],
         ),

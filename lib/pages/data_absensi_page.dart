@@ -64,27 +64,37 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
     final projectStart = DateTime.parse(presensiData.projectInfo!.tanggalMulai);
     final today = DateTime.now();
 
+    // ✅ CRITICAL FIX: Calculate periods based on project start date
+    // Period always starts on the same day of month as project start
     final periods = <PeriodOption>[];
-    var currentDate = DateTime(
-      projectStart.year,
-      projectStart.month,
-      projectStart.day,
-    );
-    final endDate = DateTime(today.year, today.month + 3, today.day);
 
-    while (currentDate.isBefore(endDate) ||
-        currentDate.isAtSameMomentAs(endDate)) {
+    // Calculate how many complete months have passed since project start
+    int monthsDiff =
+        (today.year - projectStart.year) * 12 +
+        (today.month - projectStart.month);
+
+    // If today's day is before project start day, we're still in previous period
+    if (today.day < projectStart.day) {
+      monthsDiff--;
+    }
+
+    // Generate periods from project start to 3 months ahead
+    for (int i = 0; i <= monthsDiff + 3; i++) {
+      // Calculate period start by adding months to project start
       final periodStart = DateTime(
-        currentDate.year,
-        currentDate.month,
-        currentDate.day,
+        projectStart.year,
+        projectStart.month + i,
+        projectStart.day,
       );
+
+      // Period end is 1 day before next period starts
       final periodEnd = DateTime(
-        currentDate.year,
-        currentDate.month + 1,
-        currentDate.day,
+        projectStart.year,
+        projectStart.month + i + 1,
+        projectStart.day,
       ).subtract(const Duration(days: 1));
 
+      // Format label
       final startMonth = DateFormat('MMM yyyy', 'id_ID').format(periodStart);
       final endMonth = DateFormat('MMM yyyy', 'id_ID').format(periodEnd);
 
@@ -92,6 +102,7 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           ? startMonth
           : '$startMonth - $endMonth';
 
+      // Value format: yyyy-MM of the period start
       periods.add(
         PeriodOption(
           value: DateFormat('yyyy-MM').format(periodStart),
@@ -99,12 +110,6 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
           startDate: periodStart,
           endDate: periodEnd,
         ),
-      );
-
-      currentDate = DateTime(
-        currentDate.year,
-        currentDate.month + 1,
-        currentDate.day,
       );
     }
 
@@ -117,9 +122,9 @@ class _DataAbsensiPageState extends State<DataAbsensiPage> {
       return;
     }
 
-    final currentMonth = DateFormat('yyyy-MM').format(today);
+    // ✅ Find current period (where today falls within start and end date)
     final defaultPeriod = periods.firstWhere(
-      (p) => p.value == currentMonth,
+      (p) => !today.isBefore(p.startDate) && !today.isAfter(p.endDate),
       orElse: () => periods.last,
     );
 

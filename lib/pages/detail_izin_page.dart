@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../data/models/pengajuan_izin_model.dart';
 import '../core/constants/app_colors.dart';
 import '../components/custom_snackbar.dart';
+import '../components/shimmer_loading.dart';
 
 class DetailIzinPage extends StatefulWidget {
   final int izinId;
@@ -64,8 +65,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
 
       final downloadUrl = _izin!.getDownloadUrl(token) ?? _izin!.fileUrl!;
 
-      // print('Opening file: $downloadUrl');
-
       final uri = Uri.parse(downloadUrl);
 
       bool launched = false;
@@ -73,14 +72,14 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
       try {
         launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
       } catch (e) {
-        // print('platformDefault failed: $e');
+        // Silently handle
       }
 
       if (!launched) {
         try {
           launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
         } catch (e) {
-          // print('externalApplication failed: $e');
+          // Silently handle
         }
       }
 
@@ -88,7 +87,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
         try {
           launched = await launchUrl(uri, mode: LaunchMode.inAppWebView);
         } catch (e) {
-          // print('inAppWebView failed: $e');
+          // Silently handle
         }
       }
 
@@ -96,7 +95,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
         throw Exception('Tidak dapat membuka file');
       }
     } catch (e) {
-      // print('Error opening file: $e');
       if (!mounted) return;
 
       CustomSnackbar.showError(context, 'Gagal membuka file: ${e.toString()}');
@@ -123,13 +121,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
             _buildHeader(context, screenWidth, screenHeight, padding),
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      ),
-                    )
+                  ? _buildShimmerLayout(screenWidth, padding)
                   : _izin == null
                   ? Center(
                       child: Column(
@@ -186,6 +178,200 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerLayout(double screenWidth, double padding) {
+    return ShimmerLoading(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Status badge shimmer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                ShimmerBox(width: 32, height: 32, borderRadius: 16),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShimmerBox(
+                        width: screenWidth * 0.4,
+                        height: 18,
+                        borderRadius: 4,
+                      ),
+                      const SizedBox(height: 8),
+                      ShimmerBox(
+                        width: screenWidth * 0.6,
+                        height: 12,
+                        borderRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Info card shimmer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...List.generate(4, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShimmerBox(width: 20, height: 20, borderRadius: 4),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ShimmerBox(
+                                width: screenWidth * 0.25,
+                                height: 12,
+                                borderRadius: 4,
+                              ),
+                              const SizedBox(height: 8),
+                              ShimmerBox(
+                                width: screenWidth * 0.5,
+                                height: 15,
+                                borderRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Keterangan card shimmer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    ShimmerBox(width: 20, height: 20, borderRadius: 4),
+                    const SizedBox(width: 8),
+                    ShimmerBox(
+                      width: screenWidth * 0.3,
+                      height: 16,
+                      borderRadius: 4,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ShimmerBox(width: double.infinity, height: 14, borderRadius: 4),
+                const SizedBox(height: 8),
+                ShimmerBox(
+                  width: screenWidth * 0.7,
+                  height: 14,
+                  borderRadius: 4,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Timeline shimmer
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    ShimmerBox(width: 20, height: 20, borderRadius: 4),
+                    const SizedBox(width: 8),
+                    ShimmerBox(
+                      width: screenWidth * 0.25,
+                      height: 16,
+                      borderRadius: 4,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ...List.generate(2, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Column(
+                          children: [
+                            if (index > 0)
+                              Container(
+                                width: 2,
+                                height: 16,
+                                color: Colors.grey.shade300,
+                              ),
+                            ShimmerBox(width: 28, height: 28, borderRadius: 14),
+                            if (index < 1)
+                              Container(
+                                width: 2,
+                                height: 16,
+                                color: Colors.grey.shade300,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ShimmerBox(
+                                width: screenWidth * 0.4,
+                                height: 14,
+                                borderRadius: 4,
+                              ),
+                              const SizedBox(height: 8),
+                              ShimmerBox(
+                                width: screenWidth * 0.6,
+                                height: 12,
+                                borderRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -303,7 +489,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
   }
 
   Widget _buildInfoCard() {
-    // Helper untuk mendapatkan warna kategori
     Color getKategoriColor() {
       switch (_izin!.kategoriIzin) {
         case 'sakit':
@@ -336,7 +521,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               customColor: getKategoriColor(),
             ),
 
-            // Show sub kategori if cuti khusus
             if (_izin!.subKategoriIzin != null) ...[
               const SizedBox(height: 12),
               _buildInfoRow(
@@ -367,7 +551,6 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
               Icons.event,
             ),
 
-            // Show durasi otomatis info for cuti khusus
             if (_izin!.durasiOtomatis != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -379,7 +562,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                 ),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.info_outline,
                       size: 16,
                       color: AppColors.primary,
@@ -388,7 +571,7 @@ class _DetailIzinPageState extends State<DetailIzinPage> {
                     Expanded(
                       child: Text(
                         'Durasi otomatis: ${_izin!.durasiOtomatis} hari kerja',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600,

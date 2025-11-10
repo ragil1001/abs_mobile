@@ -11,4 +11,6 @@ class AppRoutes {
   static const String notifications = '/notifications';
   static const String detailTukarShift = '/detail-tukar-shift';
   static const String historyAbsensi = '/history-absensi';
+  static const String informasi = '/informasi'; // ✅ NEW
+  static const String detailInformasi = '/detail-informasi'; // ✅ NEW
 }

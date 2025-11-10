@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../providers/izin_provider.dart';
 import '../core/constants/app_colors.dart';
 import '../data/models/pengajuan_izin_model.dart';
+import '../components/shimmer_loading.dart';
 import 'detail_izin_page.dart';
 
 class DataIzinPage extends StatefulWidget {
@@ -39,20 +40,6 @@ class _DataIzinPageState extends State<DataIzinPage> {
     final izinProvider = Provider.of<IzinProvider>(context, listen: false);
     await izinProvider.loadPengajuan();
   }
-
-  // // When navigating to detail, refresh on return
-  // void _navigateToDetail(int izinId) async {
-  //   await Navigator.push(
-  //     context,
-  //     MaterialPageRoute(builder: (_) => DetailIzinPage(izinId: izinId)),
-  //   );
-
-  //   // Refresh after returning
-  //   if (mounted && _shouldRefresh) {
-  //     _lastRefreshTime = null;
-  //     _loadData();
-  //   }
-  // }
 
   List<PengajuanIzin> _getFilteredIzin(List<PengajuanIzin> disetujuiList) {
     final now = DateTime.now();
@@ -224,15 +211,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
               return Column(
                 children: [
                   _buildHeader(context, screenWidth, screenHeight, padding),
-                  const Expanded(
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
+                  Expanded(child: _buildShimmerLayout(screenWidth, padding)),
                 ],
               );
             }
@@ -393,6 +372,152 @@ class _DataIzinPageState extends State<DataIzinPage> {
     );
   }
 
+  Widget _buildShimmerLayout(double screenWidth, double padding) {
+    return ShimmerLoading(
+      child: ListView.builder(
+        padding: EdgeInsets.all(padding),
+        itemCount: 6,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header shimmer
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      ShimmerBox(width: 60, height: 20, borderRadius: 6),
+                      const SizedBox(width: 8),
+                      const ShimmerBox(width: 16, height: 16, borderRadius: 8),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: ShimmerBox(
+                          width: double.infinity,
+                          height: 16,
+                          borderRadius: 4,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Content shimmer
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShimmerBox(width: 60, height: 70, borderRadius: 8),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const ShimmerBox(
+                                  width: 14,
+                                  height: 14,
+                                  borderRadius: 4,
+                                ),
+                                const SizedBox(width: 4),
+                                ShimmerBox(
+                                  width: screenWidth * 0.35,
+                                  height: 13,
+                                  borderRadius: 4,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const ShimmerBox(
+                                  width: 14,
+                                  height: 14,
+                                  borderRadius: 4,
+                                ),
+                                const SizedBox(width: 4),
+                                ShimmerBox(
+                                  width: screenWidth * 0.35,
+                                  height: 13,
+                                  borderRadius: 4,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            ShimmerBox(
+                              width: screenWidth * 0.6,
+                              height: 12,
+                              borderRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Footer shimmer
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const ShimmerBox(
+                            width: 14,
+                            height: 14,
+                            borderRadius: 4,
+                          ),
+                          const SizedBox(width: 4),
+                          ShimmerBox(
+                            width: screenWidth * 0.4,
+                            height: 11,
+                            borderRadius: 4,
+                          ),
+                        ],
+                      ),
+                      const ShimmerBox(width: 16, height: 16, borderRadius: 4),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildHeader(
     BuildContext context,
     double screenWidth,
@@ -440,11 +565,7 @@ class _DataIzinPageState extends State<DataIzinPage> {
     );
   }
 
-  // UPDATE untuk _buildIzinCard di data_izin_page.dart
-  // Replace fungsi _buildIzinCard dengan yang ini:
-
   Widget _buildIzinCard(PengajuanIzin izin) {
-    // Helper untuk mendapatkan warna kategori
     Color getKategoriColor() {
       switch (izin.kategoriIzin) {
         case 'sakit':
@@ -543,7 +664,6 @@ class _DataIzinPageState extends State<DataIzinPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Display deskripsi lengkap untuk cuti khusus
                   if (izin.subKategoriIzin != null) ...[
                     Text(
                       izin.deskripsiIzin,

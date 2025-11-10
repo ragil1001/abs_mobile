@@ -48,13 +48,20 @@ class FakeGpsDetectorService {
   final List<double> _speedHistory = [];
   final List<Position> _positionHistory = [];
 
-  // ✅ CACHE untuk mempercepat repeated checks
+  // ✅ OPTIMIZED CACHE - lebih agresif
   bool? _cachedDeveloperMode;
   DateTime? _cachedDeveloperModeTime;
+  bool? _cachedMockLocation;
+  DateTime? _cachedMockLocationTime;
   List<String>? _cachedFakeGpsApps;
   DateTime? _cachedFakeGpsAppsTime;
 
-  // Thresholds yang lebih reasonable
+  // Cache duration - lebih lama untuk performa
+  static const int _developerModeCacheDuration = 60; // 60 detik
+  static const int _mockLocationCacheDuration = 30; // 30 detik
+  static const int _fakeGpsAppsCacheDuration = 120; // 2 menit
+
+  // Thresholds
   static const int _minHistorySize = 5;
   static const int _maxHistorySize = 15;
   static const double _suspiciousAccuracyThreshold = 1.5;
@@ -64,46 +71,75 @@ class FakeGpsDetectorService {
   static const int _teleportTimeWindow = 8;
   static const int _frozenPositionTime = 45;
 
-  /// ✅ OPTIMIZED: Cache developer mode check (recheck every 30 seconds)
+  /// ✅ SUPER OPTIMIZED: Developer mode check dengan cache agresif
   Future<bool> isDeveloperModeActive() async {
     if (!Platform.isAndroid) return false;
 
-    // Check cache validity
+    // Check cache validity (60 detik)
     if (_cachedDeveloperMode != null && _cachedDeveloperModeTime != null) {
       final cacheAge = DateTime.now().difference(_cachedDeveloperModeTime!);
-      if (cacheAge.inSeconds < 30) {
+      if (cacheAge.inSeconds < _developerModeCacheDuration) {
+        debugPrint('✅ Using cached developer mode: $_cachedDeveloperMode');
         return _cachedDeveloperMode!;
       }
     }
 
     try {
+      final stopwatch = Stopwatch()..start();
       final result = await SafeDevice.isDevelopmentModeEnable;
+      stopwatch.stop();
+
       _cachedDeveloperMode = result;
       _cachedDeveloperModeTime = DateTime.now();
+
+      debugPrint(
+        '✅ Developer mode check: $result (${stopwatch.elapsedMilliseconds}ms)',
+      );
       return result;
     } catch (e) {
-      debugPrint('Error checking developer mode: $e');
-      return false;
+      debugPrint('❌ Error checking developer mode: $e');
+      // Return cached value if available, otherwise false
+      return _cachedDeveloperMode ?? false;
     }
   }
 
-  /// STRATEGY 2: Mock Location Detection (STRICT MODE)
+  /// ✅ OPTIMIZED: Mock Location dengan cache
   Future<bool> isMockLocationEnabled() async {
     if (!Platform.isAndroid) return false;
 
+    // Check cache validity (30 detik)
+    if (_cachedMockLocation != null && _cachedMockLocationTime != null) {
+      final cacheAge = DateTime.now().difference(_cachedMockLocationTime!);
+      if (cacheAge.inSeconds < _mockLocationCacheDuration) {
+        debugPrint('✅ Using cached mock location: $_cachedMockLocation');
+        return _cachedMockLocation!;
+      }
+    }
+
     try {
-      return await SafeDevice.isMockLocation;
+      final stopwatch = Stopwatch()..start();
+      final result = await SafeDevice.isMockLocation;
+      stopwatch.stop();
+
+      _cachedMockLocation = result;
+      _cachedMockLocationTime = DateTime.now();
+
+      debugPrint(
+        '✅ Mock location check: $result (${stopwatch.elapsedMilliseconds}ms)',
+      );
+      return result;
     } catch (e) {
-      debugPrint('Error checking mock location: $e');
-      return false;
+      debugPrint('❌ Error checking mock location: $e');
+      // Return cached value if available, otherwise false
+      return _cachedMockLocation ?? false;
     }
   }
 
-  /// STRATEGY 3: GPS Data Validation (OPTIMIZED)
+  /// STRATEGY 3: GPS Data Validation (FAST - no async)
   int validateGpsData(Position position) {
     int suspicionPoints = 0;
 
-    // 1. Altitude check - lebih lenient
+    // 1. Altitude check
     if (position.altitude == 0.0 &&
         position.accuracy < 3.0 &&
         position.speed > 1.0) {
@@ -137,7 +173,7 @@ class FakeGpsDetectorService {
     return suspicionPoints;
   }
 
-  /// STRATEGY 4: Accuracy Pattern Analysis (OPTIMIZED)
+  /// STRATEGY 4: Accuracy Pattern Analysis (FAST - no async)
   int analyzeAccuracyPattern(Position position) {
     _accuracyHistory.add(position.accuracy);
 
@@ -154,24 +190,20 @@ class FakeGpsDetectorService {
     final avgAccuracy =
         _accuracyHistory.reduce((a, b) => a + b) / _accuracyHistory.length;
 
-    // Hitung variance
     final variance =
         _accuracyHistory
             .map((acc) => (acc - avgAccuracy) * (acc - avgAccuracy))
             .reduce((a, b) => a + b) /
         _accuracyHistory.length;
 
-    // Akurasi TERLALU sempurna
     if (avgAccuracy < _excellentAccuracyThreshold && variance < 0.3) {
       suspicionPoints += 25;
     }
 
-    // Akurasi SANGAT tinggi di single point
     if (position.accuracy < _suspiciousAccuracyThreshold) {
       suspicionPoints += 10;
     }
 
-    // Akurasi terlalu buruk
     if (position.accuracy > 150.0) {
       suspicionPoints += 15;
     }
@@ -179,7 +211,7 @@ class FakeGpsDetectorService {
     return suspicionPoints;
   }
 
-  /// STRATEGY 5: Movement Pattern Analysis (OPTIMIZED)
+  /// STRATEGY 5: Movement Pattern Analysis (FAST - no async)
   int analyzeMovementPattern(Position currentPosition) {
     _positionHistory.add(currentPosition);
 
@@ -211,17 +243,14 @@ class FakeGpsDetectorService {
 
     final calculatedSpeed = distance / timeDiff;
 
-    // 1. Kecepatan sangat tinggi
     if (calculatedSpeed > _maxReasonableSpeed) {
       suspicionPoints += 30;
     }
 
-    // 2. Teleportasi
     if (distance > _teleportDistance && timeDiff < _teleportTimeWindow) {
       suspicionPoints += 35;
     }
 
-    // 3. Frozen position
     if (distance == 0.0 && timeDiff > _frozenPositionTime) {
       if (_positionHistory.length >= 3) {
         final hadPreviousMovement = _checkPreviousMovement();
@@ -231,7 +260,6 @@ class FakeGpsDetectorService {
       }
     }
 
-    // 4. Pattern analysis
     if (_positionHistory.length >= 5) {
       final trajectoryScore = _analyzeTrajectoryConsistency();
       suspicionPoints += trajectoryScore;
@@ -292,7 +320,7 @@ class FakeGpsDetectorService {
     return 0;
   }
 
-  /// STRATEGY 6: Speed Pattern Analysis (OPTIMIZED)
+  /// STRATEGY 6: Speed Pattern Analysis (FAST - no async)
   int analyzeSpeedPattern(Position position) {
     _speedHistory.add(position.speed);
 
@@ -334,18 +362,30 @@ class FakeGpsDetectorService {
     return suspicionPoints;
   }
 
-  /// ✅ OPTIMIZED: Cache fake GPS apps check (recheck every 60 seconds)
+  /// ✅ SUPER OPTIMIZED: Fake GPS apps check - run in background
   Future<List<String>> getInstalledFakeGpsApps() async {
     if (!Platform.isAndroid) return [];
 
-    // Check cache validity
+    // Check cache validity (120 detik)
     if (_cachedFakeGpsApps != null && _cachedFakeGpsAppsTime != null) {
       final cacheAge = DateTime.now().difference(_cachedFakeGpsAppsTime!);
-      if (cacheAge.inSeconds < 60) {
+      if (cacheAge.inSeconds < _fakeGpsAppsCacheDuration) {
+        debugPrint(
+          '✅ Using cached fake GPS apps: ${_cachedFakeGpsApps!.length} found',
+        );
         return _cachedFakeGpsApps!;
       }
     }
 
+    // Run in background - don't block main detection
+    _checkFakeGpsAppsBackground();
+
+    // Return cached result immediately if available
+    return _cachedFakeGpsApps ?? [];
+  }
+
+  /// ✅ NEW: Background check untuk fake GPS apps (non-blocking)
+  void _checkFakeGpsAppsBackground() {
     final fakeGpsPackages = [
       'com.lexa.fakegps',
       'com.incorporateapps.fakegps.fre',
@@ -362,53 +402,88 @@ class FakeGpsDetectorService {
       'com.blogspot.newapphorizons.fakelocation',
     ];
 
-    try {
-      final installedApps = await InstalledApps.getInstalledApps(false, true);
-      final fakeAppsFound = <String>[];
+    InstalledApps.getInstalledApps(false, true)
+        .then((installedApps) {
+          final fakeAppsFound = <String>[];
 
-      for (final app in installedApps) {
-        final packageName = app.packageName.toLowerCase();
+          for (final app in installedApps) {
+            final packageName = app.packageName.toLowerCase();
 
-        if ((packageName.contains('fake') && packageName.contains('gps')) ||
-            (packageName.contains('fake') &&
-                packageName.contains('location')) ||
-            (packageName.contains('mock') &&
-                packageName.contains('location'))) {
-          fakeAppsFound.add(app.name);
-        }
-
-        for (final fakePackage in fakeGpsPackages) {
-          if (packageName == fakePackage.toLowerCase()) {
-            if (!fakeAppsFound.contains(app.name)) {
+            if ((packageName.contains('fake') && packageName.contains('gps')) ||
+                (packageName.contains('fake') &&
+                    packageName.contains('location')) ||
+                (packageName.contains('mock') &&
+                    packageName.contains('location'))) {
               fakeAppsFound.add(app.name);
             }
-            break;
+
+            for (final fakePackage in fakeGpsPackages) {
+              if (packageName == fakePackage.toLowerCase()) {
+                if (!fakeAppsFound.contains(app.name)) {
+                  fakeAppsFound.add(app.name);
+                }
+                break;
+              }
+            }
           }
-        }
-      }
 
-      // Cache result
-      _cachedFakeGpsApps = fakeAppsFound;
-      _cachedFakeGpsAppsTime = DateTime.now();
+          // Cache result
+          _cachedFakeGpsApps = fakeAppsFound;
+          _cachedFakeGpsAppsTime = DateTime.now();
 
-      if (fakeAppsFound.isNotEmpty) {
-        debugPrint('⚠️ Fake GPS apps: ${fakeAppsFound.join(", ")}');
-      }
-
-      return fakeAppsFound;
-    } catch (e) {
-      debugPrint('Error checking installed apps: $e');
-      return [];
-    }
+          if (fakeAppsFound.isNotEmpty) {
+            debugPrint(
+              '⚠️ Fake GPS apps detected: ${fakeAppsFound.join(", ")}',
+            );
+          } else {
+            debugPrint('✅ No fake GPS apps detected');
+          }
+        })
+        .catchError((e) {
+          debugPrint('❌ Error checking installed apps: $e');
+          // Keep old cache on error
+        });
   }
 
-  /// ✅ OPTIMIZED: Main detection dengan parallel execution
+  /// ✅ SUPER OPTIMIZED: Main detection dengan fast-first strategy
   Future<FakeGpsDetectionResult> detectFakeGps(Position position) async {
+    final stopwatch = Stopwatch()..start();
+
     final detections = <FakeGpsDetectionType>[];
     final messages = <String>[];
     int totalScore = 0;
 
-    // ✅ CRITICAL: Run critical checks in parallel
+    // ✅ STRATEGY: Critical checks first (with cache), non-critical after
+
+    // STEP 1: Fast synchronous checks (no await)
+    final gpsDataScore = validateGpsData(position);
+    if (gpsDataScore > 0) {
+      detections.add(FakeGpsDetectionType.suspiciousGpsData);
+      totalScore += gpsDataScore;
+    }
+
+    final accuracyScore = analyzeAccuracyPattern(position);
+    if (accuracyScore > 0) {
+      detections.add(FakeGpsDetectionType.lowAccuracy);
+      messages.add('Pola akurasi GPS mencurigakan');
+      totalScore += accuracyScore;
+    }
+
+    final movementScore = analyzeMovementPattern(position);
+    if (movementScore > 0) {
+      detections.add(FakeGpsDetectionType.unnaturalMovement);
+      messages.add('Pola perpindahan tidak natural');
+      totalScore += movementScore;
+    }
+
+    final speedScore = analyzeSpeedPattern(position);
+    if (speedScore > 0) {
+      detections.add(FakeGpsDetectionType.suspiciousSpeed);
+      messages.add('Pola kecepatan mencurigakan');
+      totalScore += speedScore;
+    }
+
+    // STEP 2: Critical async checks (with cache - should be fast)
     final criticalChecks = await Future.wait([
       isDeveloperModeActive(),
       isMockLocationEnabled(),
@@ -417,14 +492,14 @@ class FakeGpsDetectorService {
     final developerMode = criticalChecks[0];
     final mockLocation = criticalChecks[1];
 
-    // STRATEGY 1: Developer Mode (INSTANT BLOCK)
+    // Developer Mode (INSTANT BLOCK)
     if (developerMode) {
       detections.add(FakeGpsDetectionType.developerMode);
       messages.add('Opsi Developer aktif');
       totalScore = 100; // Auto max score
     }
 
-    // STRATEGY 2: Mock Location (KETAT)
+    // Mock Location (STRICT)
     if (mockLocation) {
       detections.add(FakeGpsDetectionType.mockLocation);
 
@@ -436,49 +511,12 @@ class FakeGpsDetectorService {
       }
     }
 
-    // STRATEGY 3: GPS Data Validation
-    final gpsDataScore = validateGpsData(position);
-    if (gpsDataScore > 0) {
-      detections.add(FakeGpsDetectionType.suspiciousGpsData);
-      totalScore += gpsDataScore;
-    }
-
-    // STRATEGY 4: Accuracy Pattern
-    final accuracyScore = analyzeAccuracyPattern(position);
-    if (accuracyScore > 0) {
-      detections.add(FakeGpsDetectionType.lowAccuracy);
-      messages.add('Pola akurasi GPS mencurigakan');
-      totalScore += accuracyScore;
-    }
-
-    // STRATEGY 5: Movement Pattern
-    final movementScore = analyzeMovementPattern(position);
-    if (movementScore > 0) {
-      detections.add(FakeGpsDetectionType.unnaturalMovement);
-      messages.add('Pola perpindahan tidak natural');
-      totalScore += movementScore;
-    }
-
-    // STRATEGY 6: Speed Pattern
-    final speedScore = analyzeSpeedPattern(position);
-    if (speedScore > 0) {
-      detections.add(FakeGpsDetectionType.suspiciousSpeed);
-      messages.add('Pola kecepatan mencurigakan');
-      totalScore += speedScore;
-    }
-
-    // STRATEGY 7: Fake GPS Apps (run in background, don't block)
-    getInstalledFakeGpsApps().then((fakeApps) {
-      if (fakeApps.isNotEmpty) {
-        // This will be caught on next detection cycle
-        debugPrint('⚠️ Fake GPS apps detected: ${fakeApps.join(", ")}');
-      }
-    });
-
-    // Use cached result if available
-    if (_cachedFakeGpsApps != null && _cachedFakeGpsApps!.isNotEmpty) {
+    // STEP 3: Non-critical async checks (from cache or background)
+    final fakeApps =
+        await getInstalledFakeGpsApps(); // Returns cached immediately
+    if (fakeApps.isNotEmpty) {
       detections.add(FakeGpsDetectionType.fakeGpsApp);
-      messages.add('Aplikasi fake GPS: ${_cachedFakeGpsApps!.first}');
+      messages.add('Aplikasi fake GPS: ${fakeApps.first}');
       totalScore += 40;
     }
 
@@ -490,13 +528,14 @@ class FakeGpsDetectorService {
         ? 'Lokasi GPS valid (Score: $totalScore)'
         : '${messages.join('\n')} (Score: $totalScore)';
 
-    if (kDebugMode && totalScore > 0) {
-      debugPrint('=== FAKE GPS DETECTION ===');
-      debugPrint('Total Suspicion Score: $totalScore/100');
-      debugPrint('Block Access: ${totalScore > 60 || developerMode}');
-      debugPrint('Detections: ${detections.join(", ")}');
-      debugPrint('========================');
-    }
+    stopwatch.stop();
+
+    debugPrint(
+      '🔍 FAKE GPS DETECTION COMPLETED in ${stopwatch.elapsedMilliseconds}ms',
+    );
+    debugPrint('   Total Score: $totalScore/100');
+    debugPrint('   Block Access: ${totalScore > 60 || developerMode}');
+    debugPrint('   Detections: ${detections.length}');
 
     return FakeGpsDetectionResult(
       isSuspicious: isSuspicious,
@@ -507,12 +546,12 @@ class FakeGpsDetectorService {
     );
   }
 
-  /// Quick check untuk developer mode (with cache)
+  /// Quick check untuk developer mode (cached)
   Future<bool> quickDeveloperModeCheck() async {
     return await isDeveloperModeActive();
   }
 
-  /// Reset service state
+  /// Reset service state (tapi keep cache!)
   void reset() {
     _previousPosition = null;
     _previousTime = null;
@@ -520,15 +559,27 @@ class FakeGpsDetectorService {
     _speedHistory.clear();
     _positionHistory.clear();
 
-    // Don't clear cache on reset - it's still valid
-    // Only clear if explicitly needed
+    // ✅ KEEP CACHE - masih valid!
+    debugPrint('✅ FakeGpsDetector reset (cache preserved)');
   }
 
-  /// Clear all caches (call when needed, e.g., on logout)
+  /// Clear all caches (hanya saat logout atau force refresh)
   void clearCache() {
     _cachedDeveloperMode = null;
     _cachedDeveloperModeTime = null;
+    _cachedMockLocation = null;
+    _cachedMockLocationTime = null;
     _cachedFakeGpsApps = null;
     _cachedFakeGpsAppsTime = null;
+
+    debugPrint('🗑️ FakeGpsDetector cache cleared');
+  }
+
+  /// ✅ NEW: Pre-warm cache (panggil saat app start)
+  Future<void> prewarmCache() async {
+    debugPrint('🔥 Prewarming FakeGpsDetector cache...');
+    await Future.wait([isDeveloperModeActive(), isMockLocationEnabled()]);
+    _checkFakeGpsAppsBackground();
+    debugPrint('✅ Cache prewarmed');
   }
 }

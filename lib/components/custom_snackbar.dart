@@ -11,22 +11,26 @@ class CustomSnackbar {
   }) {
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
+    bool isRemoved = false;
+
+    void removeEntry() {
+      if (!isRemoved && overlayEntry.mounted) {
+        isRemoved = true;
+        overlayEntry.remove();
+      }
+    }
 
     overlayEntry = OverlayEntry(
       builder: (context) => _CustomSnackbarWidget(
         message: message,
         type: type,
-        onDismiss: () => overlayEntry.remove(),
+        onDismiss: removeEntry,
       ),
     );
 
     overlay.insert(overlayEntry);
 
-    Future.delayed(duration, () {
-      if (overlayEntry.mounted) {
-        overlayEntry.remove();
-      }
-    });
+    Future.delayed(duration, removeEntry);
   }
 
   static void showSuccess(BuildContext context, String message) {
@@ -69,6 +73,7 @@ class _CustomSnackbarWidgetState extends State<_CustomSnackbarWidget>
   late Animation<Offset> _slideAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  bool _isDismissing = false;
 
   @override
   void initState() {
@@ -140,6 +145,26 @@ class _CustomSnackbarWidgetState extends State<_CustomSnackbarWidget>
         return 'Peringatan';
       case SnackbarType.info:
         return 'Informasi';
+    }
+  }
+
+  Future<void> _handleDismiss() async {
+    if (_isDismissing) return;
+    _isDismissing = true;
+
+    if (!mounted) {
+      widget.onDismiss();
+      return;
+    }
+
+    try {
+      await _controller.reverse();
+    } catch (_) {
+      // Ignore animation errors
+    }
+
+    if (mounted) {
+      widget.onDismiss();
     }
   }
 
@@ -281,10 +306,7 @@ class _CustomSnackbarWidgetState extends State<_CustomSnackbarWidget>
 
                             // Close Button
                             GestureDetector(
-                              onTap: () async {
-                                await _controller.reverse();
-                                widget.onDismiss();
-                              },
+                              onTap: _handleDismiss,
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(

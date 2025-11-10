@@ -281,6 +281,26 @@ class FirebaseMessagingService {
 
     try {
       switch (type) {
+        case 'informasi_baru':
+        case 'new_informasi':
+        case 'informasi_created':
+          final informasiKaryawanId = int.tryParse(
+            data['informasi_karyawan_id']?.toString() ?? '',
+          );
+          debugPrint(
+            '🎯 [INFORMASI] Navigating to detail informasi: $informasiKaryawanId',
+          );
+
+          if (informasiKaryawanId != null) {
+            Navigator.of(
+              context,
+            ).pushNamed('/detail-informasi', arguments: informasiKaryawanId);
+          } else {
+            // Fallback ke halaman list informasi jika ID tidak ada
+            Navigator.of(context).pushNamed('/informasi');
+          }
+          break;
+
         // ========================================
         // PENGAJUAN IZIN (MOBILE) ✅
         // ========================================

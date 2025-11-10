@@ -1,3 +1,6 @@
+// File: lib/components/customNavbar.dart
+// UPDATED: Menggunakan CustomPresensiDialog yang responsive
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -7,6 +10,7 @@ import '../providers/presensi_provider.dart';
 import '../data/services/dio_service.dart';
 import '../data/services/fake_gps_detector_service.dart';
 import '../core/config/app_config.dart';
+import '../components/custom_presensi_dialog.dart'; // ✅ NEW IMPORT
 
 class CustomBottomNavBar extends StatefulWidget {
   final double circleRadius;
@@ -39,7 +43,6 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
       duration: const Duration(seconds: 3),
     )..repeat();
 
-    // Initialize detector
     _initializeDetector();
   }
 
@@ -47,15 +50,13 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Reinitialize detector ketika app resumed
     if (state == AppLifecycleState.resumed) {
-      debugPrint('🔄 App resumed - reinitializing FakeGpsDetector');
+      debugPrint('📱 App resumed - reinitializing FakeGpsDetector');
       _initializeDetector();
     }
   }
 
   void _initializeDetector() {
-    // Create new instance untuk clear cache
     _fakeGpsDetector = FakeGpsDetectorService();
     debugPrint('✅ FakeGpsDetector initialized');
   }
@@ -68,74 +69,65 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
   }
 
   Future<void> _handlePresensiTap() async {
-    // Reinitialize detector untuk memastikan cache terbaru
     _initializeDetector();
 
-    // STEP 1: Cek developer mode terlebih dahulu (PRIORITY TERTINGGI)
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Memeriksa keamanan perangkat...'),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    // STEP 1: Cek developer mode
+    _showLoadingDialog('Memeriksa keamanan perangkat...');
 
     final isDeveloperMode = await _fakeGpsDetector!.quickDeveloperModeCheck();
 
     if (mounted) Navigator.pop(context);
 
     if (isDeveloperMode) {
-      _showSecurityBlockDialog(
-        title: 'Opsi Developer Terdeteksi',
-        message:
-            'Untuk keamanan presensi, aplikasi tidak dapat digunakan saat Opsi Developer aktif.\n\n'
-            'Cara menonaktifkan:\n'
-            '1. Buka Pengaturan\n'
-            '2. Pilih Sistem\n'
-            '3. Pilih Opsi Pengembang\n'
-            '4. Matikan "Opsi Pengembang"',
-        icon: Icons.security,
-        iconColor: Colors.red,
-      );
+      _showSecurityBlockDialog();
       return;
     }
 
-    // STEP 2: Lanjutkan cek akses presensi normal
+    // STEP 2: Lanjutkan cek akses presensi
     _checkPresensiAccess();
   }
 
-  Future<void> _checkPresensiAccess() async {
+  void _showLoadingDialog(String message) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
+      builder: (context) => Center(
         child: Card(
           child: Padding(
-            padding: EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Memeriksa akses presensi...'),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(message),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _showSecurityBlockDialog() {
+    CustomPresensiDialog.show(
+      context: context,
+      title: 'Opsi Developer Terdeteksi',
+      message:
+          'Untuk keamanan presensi, aplikasi tidak dapat digunakan saat Opsi Developer aktif.',
+      icon: Icons.security,
+      iconColor: Colors.red,
+      additionalInfo:
+          'Cara menonaktifkan:\n'
+          '1. Buka Pengaturan\n'
+          '2. Pilih Sistem → Opsi Pengembang\n'
+          '3. Matikan "Opsi Pengembang"',
+      confirmText: 'Tutup',
+    );
+  }
+
+  Future<void> _checkPresensiAccess() async {
+    _showLoadingDialog('Memeriksa akses presensi...');
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -158,6 +150,18 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
         final bisaMasuk = data['bisa_presensi_masuk'] ?? false;
         final sudahMasuk = data['sudah_presensi_masuk'] ?? false;
         final sudahPulang = data['sudah_presensi_pulang'] ?? false;
+        final isHariLibur = data['is_hari_libur'] ?? false;
+
+        // Get waktu_info
+        final waktuInfo = data['waktu_info'] ?? {};
+        final pesan = waktuInfo['pesan'] ?? '';
+        final errorType = waktuInfo['error_type'];
+
+        // Get shift info
+        final shift = data['shift'] ?? {};
+        final shiftKode = shift['kode'] ?? '';
+        final waktuMulai = shift['waktu_mulai'] ?? '';
+        final waktuSelesai = shift['waktu_selesai'] ?? '';
 
         // Cek status alpa
         final presensiProvider = Provider.of<PresensiProvider>(
@@ -168,18 +172,19 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
         final isAlpaToday = presensiData?.presensiHariIni?.isAlpa ?? false;
 
         if (isAlpaToday) {
-          _showAccessDeniedDialog(
+          _showCustomDialog(
             title: 'Status Alpa',
             message:
-                'Anda tercatat tidak melakukan presensi hari ini dan statusnya adalah Alpa. Silakan hubungi admin jika ada kesalahan.',
+                'Anda tercatat tidak melakukan presensi hari ini dan statusnya adalah Alpa.',
             icon: Icons.warning_amber_rounded,
             iconColor: Colors.red,
+            additionalInfo: 'Silakan hubungi admin jika ada kesalahan',
           );
           return;
         }
 
         if (sudahMasuk && sudahPulang) {
-          _showAccessDeniedDialog(
+          _showCustomDialog(
             title: 'Presensi Selesai',
             message: 'Anda sudah melakukan presensi masuk dan pulang hari ini.',
             icon: Icons.check_circle_outline,
@@ -188,13 +193,57 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
           return;
         }
 
-        if (!sudahMasuk && !bisaMasuk) {
-          _showAccessDeniedDialog(
+        // ✅ Hari libur - allow anytime
+        if (isHariLibur) {
+          if (mounted) {
+            Navigator.pushNamed(context, '/absensi');
+          }
+          return;
+        }
+
+        // ✅ NEW: Handle shift_ended error
+        if (errorType == 'shift_ended') {
+          _showCustomDialog(
+            title: 'Shift Sudah Berakhir',
+            message: pesan,
+            icon: Icons.access_time,
+            iconColor: Colors.red,
+            additionalInfo: 'Shift $shiftKode: $waktuMulai - $waktuSelesai',
+          );
+          return;
+        }
+
+        // ✅ Handle shift belum mulai
+        if (errorType == 'shift_not_started') {
+          _showCustomDialog(
             title: 'Belum Waktunya Presensi',
-            message:
-                'Waktu presensi masuk belum dibuka. Silakan coba lagi saat waktu shift Anda.',
+            message: pesan,
             icon: Icons.schedule,
             iconColor: Colors.orange,
+            additionalInfo: 'Shift $shiftKode: $waktuMulai - $waktuSelesai',
+          );
+          return;
+        }
+
+        // ✅ Handle already completed
+        if (errorType == 'already_completed') {
+          _showCustomDialog(
+            title: 'Presensi Selesai',
+            message: pesan,
+            icon: Icons.check_circle_outline,
+            iconColor: Colors.green,
+          );
+          return;
+        }
+
+        // Normal flow - boleh presensi
+        if (!sudahMasuk && !bisaMasuk) {
+          _showCustomDialog(
+            title: 'Belum Waktunya Presensi',
+            message: pesan,
+            icon: Icons.schedule,
+            iconColor: Colors.orange,
+            additionalInfo: 'Shift $shiftKode: $waktuMulai - $waktuSelesai',
           );
           return;
         }
@@ -213,32 +262,31 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
       String message = e.message;
       IconData icon = Icons.info_outline;
       Color iconColor = Colors.orange;
+      String? additionalInfo;
 
       if (e.message.contains('Tidak ada jadwal')) {
         message = 'Tidak ada jadwal kerja untuk hari ini.';
         icon = Icons.event_busy;
-      } else if (e.message.contains('hari libur')) {
-        message = 'Hari ini adalah hari libur Anda.';
-        icon = Icons.beach_access;
-        iconColor = Colors.blue;
       } else if (e.message.contains('belum terdaftar')) {
-        message = 'Anda belum terdaftar di project manapun. Hubungi admin.';
+        message = 'Anda belum terdaftar di project manapun.';
+        additionalInfo = 'Hubungi admin untuk mendaftarkan Anda ke project';
         icon = Icons.person_off;
         iconColor = Colors.red;
       }
 
-      _showAccessDeniedDialog(
+      _showCustomDialog(
         title: 'Tidak Dapat Presensi',
         message: message,
         icon: icon,
         iconColor: iconColor,
+        additionalInfo: additionalInfo,
       );
     } catch (e) {
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
 
-      _showAccessDeniedDialog(
+      _showCustomDialog(
         title: 'Terjadi Kesalahan',
         message: 'Gagal memeriksa akses presensi. Silakan coba lagi.',
         icon: Icons.error_outline,
@@ -247,80 +295,23 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
     }
   }
 
-  void _showSecurityBlockDialog({
+  void _showCustomDialog({
     required String title,
     required String message,
     required IconData icon,
     required Color iconColor,
+    String? additionalInfo,
   }) {
     if (!mounted) return;
 
-    showDialog(
+    CustomPresensiDialog.show(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Column(
-          children: [
-            Icon(icon, size: 64, color: iconColor),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAccessDeniedDialog({
-    required String title,
-    required String message,
-    required IconData icon,
-    required Color iconColor,
-  }) {
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Column(
-          children: [
-            Icon(icon, size: 64, color: iconColor),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      title: title,
+      message: message,
+      icon: icon,
+      iconColor: iconColor,
+      additionalInfo: additionalInfo,
+      confirmText: 'OK',
     );
   }
 
